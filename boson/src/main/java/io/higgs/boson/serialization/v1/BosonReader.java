@@ -1,5 +1,18 @@
 package io.higgs.boson.serialization.v1;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.BinaryNode;
+import com.fasterxml.jackson.databind.node.BooleanNode;
+import com.fasterxml.jackson.databind.node.DoubleNode;
+import com.fasterxml.jackson.databind.node.FloatNode;
+import com.fasterxml.jackson.databind.node.IntNode;
+import com.fasterxml.jackson.databind.node.LongNode;
+import com.fasterxml.jackson.databind.node.NullNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.ShortNode;
+import com.fasterxml.jackson.databind.node.TextNode;
 import io.higgs.boson.BosonMessage;
 import io.higgs.boson.serialization.InvalidDataException;
 import io.higgs.boson.serialization.InvalidRequestResponseTypeException;
@@ -25,6 +38,7 @@ import java.util.Set;
 import static io.higgs.boson.BosonType.ARRAY;
 import static io.higgs.boson.BosonType.BOOLEAN;
 import static io.higgs.boson.BosonType.BYTE;
+import static io.higgs.boson.BosonType.BYTE_ARRAY;
 import static io.higgs.boson.BosonType.CHAR;
 import static io.higgs.boson.BosonType.DOUBLE;
 import static io.higgs.boson.BosonType.ENUM;
@@ -44,6 +58,7 @@ import static io.higgs.boson.BosonType.RESPONSE_PARAMETERS;
 import static io.higgs.boson.BosonType.SET;
 import static io.higgs.boson.BosonType.SHORT;
 import static io.higgs.boson.BosonType.STRING;
+import static java.lang.String.format;
 
 /**
  * @author Courtney Robinson <courtney@crlog.info>
@@ -53,13 +68,19 @@ public class BosonReader {
     protected Logger log = LoggerFactory.getLogger(getClass());
     protected ClassLoader loader = Thread.currentThread().getContextClassLoader();
     protected IdentityHashMap<Integer, Object> references = new IdentityHashMap<>();
+    protected ObjectMapper mapper = new ObjectMapper();
 
     public BosonReader() {
-        this(null);
+        this((Set<WriteMutator>) null);
     }
 
     public BosonReader(Set<WriteMutator> mutators) {
         this.mutators = mutators == null ? new HashSet<WriteMutator>() : mutators;
+    }
+
+    public BosonReader(ObjectMapper mapper) {
+        this.mutators = new HashSet<>();
+        this.mapper = mapper;
     }
 
     public <T> T deSerialize(ByteBuf buf) {
@@ -102,12 +123,11 @@ public class BosonReader {
                     break;
                 }
                 default:
-                    throw new InvalidRequestResponseTypeException(String.
-                            format("The type %s does not match any of the supported" +
-                                            " response or request types (method,callback,parameter)" +
-                                            "\n data: \n %s",
-                                    type, new String(data.array())
-                            ), null);
+                    throw new InvalidRequestResponseTypeException(format("The type %s does not match any of the " +
+                                    "supported  response or request types (method,callback,parameter)" +
+                                    "\n data: \n %s",
+                            type, new String(data.array())
+                    ), null);
             }
         }
     }
@@ -150,9 +170,10 @@ public class BosonReader {
             ByteBuf buf = data.readBytes(size);
             byte[] arr = new byte[buf.writerIndex()];
             buf.getBytes(0, arr);
+            buf.release();
             return new String(arr, Charset.forName("utf8"));
         } else {
-            throw new UnsupportedBosonTypeException(String.format("type %s is not a Boson STRING", type), null);
+            throw new UnsupportedBosonTypeException(format("type %s is not a Boson STRING", type), null);
         }
     }
 
@@ -179,7 +200,7 @@ public class BosonReader {
                 try {
                     klass = loader.loadClass(enumClassName);
                 } catch (ClassNotFoundException e) {
-                    throw new IllegalArgumentException(String.format("Cannot load the requested class %s",
+                    throw new IllegalArgumentException(format("Cannot load the requested class %s",
                             enumClassName), e);
                 }
                 Enum[] vals = (Enum[]) klass.getEnumConstants();
@@ -194,7 +215,7 @@ public class BosonReader {
                 return null;
             }
         } else {
-            throw new UnsupportedBosonTypeException(String.format("type %s is not a Boson ENUM", type), null);
+            throw new UnsupportedBosonTypeException(format("type %s is not a Boson ENUM", type), null);
         }
     }
 
@@ -215,7 +236,7 @@ public class BosonReader {
             verifyReadable(data);
             return data.readByte();
         } else {
-            throw new UnsupportedBosonTypeException(String.format("type %s is not a Boson BYTE", type), null);
+            throw new UnsupportedBosonTypeException(format("type %s is not a Boson BYTE", type), null);
         }
     }
 
@@ -236,7 +257,7 @@ public class BosonReader {
             verifyReadable(data);
             return data.readShort();
         } else {
-            throw new UnsupportedBosonTypeException(String.format("type %s is not a Boson SHORT", type), null);
+            throw new UnsupportedBosonTypeException(format("type %s is not a Boson SHORT", type), null);
         }
     }
 
@@ -257,7 +278,7 @@ public class BosonReader {
             verifyReadable(data);
             return data.readInt();
         } else {
-            throw new UnsupportedBosonTypeException(String.format("type %s is not a Boson INT", type), null);
+            throw new UnsupportedBosonTypeException(format("type %s is not a Boson INT", type), null);
         }
     }
 
@@ -278,7 +299,7 @@ public class BosonReader {
             verifyReadable(data);
             return data.readLong();
         } else {
-            throw new UnsupportedBosonTypeException(String.format("type %s is not a Boson LONG", type), null);
+            throw new UnsupportedBosonTypeException(format("type %s is not a Boson LONG", type), null);
         }
     }
 
@@ -299,7 +320,7 @@ public class BosonReader {
             verifyReadable(data);
             return data.readFloat();
         } else {
-            throw new UnsupportedBosonTypeException(String.format("type %s is not a Boson FLOAT", type), null);
+            throw new UnsupportedBosonTypeException(format("type %s is not a Boson FLOAT", type), null);
         }
     }
 
@@ -320,7 +341,7 @@ public class BosonReader {
             verifyReadable(data);
             return data.readDouble();
         } else {
-            throw new UnsupportedBosonTypeException(String.format("type %s is not a Boson DOUBLE", type), null);
+            throw new UnsupportedBosonTypeException(format("type %s is not a Boson DOUBLE", type), null);
         }
     }
 
@@ -341,7 +362,7 @@ public class BosonReader {
             verifyReadable(data);
             return data.readByte() != 0;
         } else {
-            throw new UnsupportedBosonTypeException(String.format("type %s is not a Boson BOOLEAN", type), null);
+            throw new UnsupportedBosonTypeException(format("type %s is not a Boson BOOLEAN", type), null);
         }
     }
 
@@ -362,7 +383,7 @@ public class BosonReader {
             verifyReadable(data);
             return data.readChar();
         } else {
-            throw new UnsupportedBosonTypeException(String.format("type %s is not a Boson CHAR", type), null);
+            throw new UnsupportedBosonTypeException(format("type %s is not a Boson CHAR", type), null);
         }
     }
 
@@ -390,7 +411,23 @@ public class BosonReader {
             }
             return arr;
         } else {
-            throw new UnsupportedBosonTypeException(String.format("type %s is not a Boson ARRAY", type), null);
+            throw new UnsupportedBosonTypeException(format("type %s is not a Boson ARRAY", type), null);
+        }
+    }
+
+    public byte[] readByteArray(ByteBuf data, boolean verified, int verifiedType) {
+        int type = verifiedType;
+        if (!verified) {
+            type = data.readByte();
+        }
+        if (BYTE_ARRAY == type) {
+            //read number of elements in the array
+            int size = data.readInt();
+            byte[] arr = new byte[size];
+            data.readBytes(arr);
+            return arr;
+        } else {
+            throw new UnsupportedBosonTypeException(format("type %s is not a Boson ARRAY", type), null);
         }
     }
 
@@ -420,7 +457,7 @@ public class BosonReader {
             }
             return arr;
         } else {
-            throw new UnsupportedBosonTypeException(String.format("type %s is not a Boson LIST", type), null);
+            throw new UnsupportedBosonTypeException(format("type %s is not a Boson LIST", type), null);
         }
     }
 
@@ -442,7 +479,7 @@ public class BosonReader {
             }
             return set;
         } else {
-            throw new UnsupportedBosonTypeException(String.format("type %s is not a Boson SET", type), null);
+            throw new UnsupportedBosonTypeException(format("type %s is not a Boson SET", type), null);
         }
     }
 
@@ -472,7 +509,7 @@ public class BosonReader {
             }
             return kv;
         } else {
-            throw new UnsupportedBosonTypeException(String.format("type %s is not a Boson MAP", type), null);
+            throw new UnsupportedBosonTypeException(format("type %s is not a Boson MAP", type), null);
         }
     }
 
@@ -491,23 +528,49 @@ public class BosonReader {
                 throw new InvalidDataException("Cannot de-serialise a POLO without it's fully qualified class name " +
                         "being provided", null);
             }
+            boolean isJsonArray = poloClassName.contentEquals(ArrayNode.class.getName());
+            boolean isJsonObject = poloClassName.contentEquals(ObjectNode.class.getName());
             //get number of fields serialized
             int size = data.readInt();
-            WriteMutator mutator = null;
-            for (WriteMutator m : mutators) {
-                if (m.canCreate(poloClassName)) {
-                    mutator = m;
-                    break;
+            if (isJsonArray || isJsonObject) {
+                return readJson(data, isJsonArray, ref, size);
+            } else {
+                WriteMutator mutator = null;
+                for (WriteMutator m : mutators) {
+                    if (m.canCreate(poloClassName)) {
+                        mutator = m;
+                        break;
+                    }
+                }
+                if (mutator != null) {
+                    return readPoloMutator(data, mutator, poloClassName, ref, size);
+                } else {
+                    return readPoloReflection(data, poloClassName, ref, size);
                 }
             }
-            if (mutator != null) {
-                return readPoloMutator(data, mutator, poloClassName, ref, size);
-            } else {
-                return readPoloReflection(data, poloClassName, ref, size);
-            }
         } else {
-            throw new UnsupportedBosonTypeException(String.format("type %s is not a Boson POLO", type), null);
+            throw new UnsupportedBosonTypeException(format("type %s is not a Boson POLO", type), null);
         }
+    }
+
+    private Object readJson(ByteBuf data, boolean isArray, int ref, int size) {
+        JsonNode instance = isArray ? mapper.createArrayNode() : mapper.createObjectNode();
+        references.put(ref, instance);
+        for (int i = 0; i < size; i++) {
+            verifyReadable(data);
+            //polo keys are required to be strings
+            String key = readString(data, false, 0);
+            verifyReadable(data);
+            int valueType = data.readByte();
+            Object value = readType(data, valueType);
+            JsonNode json = readJsonType(value);
+            if (isArray) {
+                ((ArrayNode) instance).add(json);
+            } else {
+                ((ObjectNode) instance).set(key, json);
+            }
+        }
+        return instance;
     }
 
     private Object readPoloMutator(ByteBuf data, WriteMutator mutator, String className, int ref, int size) {
@@ -533,7 +596,7 @@ public class BosonReader {
             try {
                 klass = loader.loadClass(poloClassName);
             } catch (ClassNotFoundException e) {
-                throw new IllegalArgumentException(String.format("Cannot load the requested class %s",
+                throw new IllegalArgumentException(format("Cannot load the requested class %s",
                         poloClassName), e);
             }
             Object instance = klass.newInstance();
@@ -544,8 +607,9 @@ public class BosonReader {
             //create a map of fields names -> Field
             Map<String, Field> fieldset = new HashMap<>();
             for (Field field : fields) {
-                if (!Modifier.isFinal(field.getModifiers())) {
-                    //only add non-final fields
+                if (!Modifier.isFinal(field.getModifiers()) &&
+                        !Modifier.isTransient(field.getModifiers())) {
+                    //only add non-final and transient fields
                     fieldset.put(field.getName(), field);
                 }
             }
@@ -573,7 +637,7 @@ public class BosonReader {
                                     Object arrayValue = Array.get(value, j);
                                     Array.set(arr, j, arrayValue); //set the value at the current index, i
                                 } catch (IllegalArgumentException iae) {
-                                    log.warn(String.format("Field \":%s\" of class \"%s\" is an array but " +
+                                    log.warn(format("Field \":%s\" of class \"%s\" is an array but " +
                                                     "failed to set value at index \"%s\" - type \"%s\"",
                                             key, klass.getName(), j, cname
                                     ));
@@ -582,11 +646,11 @@ public class BosonReader {
                             try {
                                 field.set(instance, arr);
                             } catch (IllegalAccessException e) {
-                                log.debug(String.format("Unable to access field \"%s\" of class \"%s\" ", key,
+                                log.debug(format("Unable to access field \"%s\" of class \"%s\" ", key,
                                         klass.getName()));
                             }
                         } else {
-                            log.warn(String.format("Field \":%s\" of class \"%s\" is an array but value " +
+                            log.warn(format("Field \":%s\" of class \"%s\" is an array but value " +
                                     "received is \"%s\" of type \"%s\"", key, klass.getName(), value, cname));
                         }
                     } else {
@@ -594,18 +658,18 @@ public class BosonReader {
                             field.set(instance, value);
                         } catch (IllegalArgumentException iae) {
                             String vclass = value.getClass().getName();
-                            log.warn(String.format("Field \"%s\" of class \"%s\" is of type %s " +
+                            log.warn(format("Field \"%s\" of class \"%s\" is of type %s " +
                                             "but value received is \"%s\" of type \"%s\"",
                                     key, klass.getName(), vclass, value, cname
                             ));
                         } catch (IllegalAccessException e) {
-                            log.debug(String.format("Unable to access field \"%s\" of class \"%s\" ",
+                            log.debug(format("Unable to access field \"%s\" of class \"%s\" ",
                                     key, klass.getName()));
                         }
                     }
                 } else {
                     if (value != null) {
-                        log.warn(String.format("Field %s received with value %s but the " +
+                        log.warn(format("Field %s received with value %s but the " +
                                 "field does not exist in class %s", key, value, poloClassName));
                     }
                 }
@@ -630,7 +694,7 @@ public class BosonReader {
             obj = references.get(reference);
             return obj;
         } else {
-            throw new UnsupportedBosonTypeException(String.format("type %s is not a Boson reference", type), null);
+            throw new UnsupportedBosonTypeException(format("type %s is not a Boson reference", type), null);
         }
     }
 
@@ -665,6 +729,8 @@ public class BosonReader {
                 return readString(data, true, type);
             case ARRAY:
                 return readArray(data, true, type);
+            case BYTE_ARRAY:
+                return readByteArray(data, true, type);
             case LIST:
                 return readList(data, true, type);
             case SET:
@@ -678,8 +744,34 @@ public class BosonReader {
             case ENUM:
                 return readEnum(data, true, ENUM);
             default: {
-                throw new UnsupportedBosonTypeException(String.format("type %s is not a valid boson type", type), null);
+                throw new UnsupportedBosonTypeException(format("type %s is not a valid boson type", type), null);
             }
+        }
+    }
+
+    public JsonNode readJsonType(Object data) {
+        if (data == null) {
+            return NullNode.getInstance();
+        } else if (data instanceof JsonNode) {
+            return (JsonNode) data;
+        } else if (data instanceof String) {
+            return TextNode.valueOf((String) data);
+        } else if (data instanceof Short) {
+            return ShortNode.valueOf((Short) data);
+        } else if (data instanceof Integer) {
+            return IntNode.valueOf((Integer) data);
+        } else if (data instanceof Long) {
+            return LongNode.valueOf((Long) data);
+        } else if (data instanceof Double) {
+            return DoubleNode.valueOf((Double) data);
+        } else if (data instanceof Float) {
+            return FloatNode.valueOf((Float) data);
+        } else if (data instanceof Boolean) {
+            return BooleanNode.valueOf((Boolean) data);
+        } else if (data instanceof byte[]) {
+            return BinaryNode.valueOf((byte[]) data);
+        } else {
+            throw new IllegalStateException(format("%s cannot be read to a JSON type", data.getClass().getName()));
         }
     }
 

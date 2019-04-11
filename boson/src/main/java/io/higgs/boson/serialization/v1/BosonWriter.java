@@ -1,5 +1,17 @@
 package io.higgs.boson.serialization.v1;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.BinaryNode;
+import com.fasterxml.jackson.databind.node.BooleanNode;
+import com.fasterxml.jackson.databind.node.DoubleNode;
+import com.fasterxml.jackson.databind.node.FloatNode;
+import com.fasterxml.jackson.databind.node.IntNode;
+import com.fasterxml.jackson.databind.node.LongNode;
+import com.fasterxml.jackson.databind.node.NullNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.ShortNode;
+import com.fasterxml.jackson.databind.node.TextNode;
 import io.higgs.boson.BosonMessage;
 import io.higgs.boson.serialization.BosonProperty;
 import io.higgs.boson.serialization.mutators.ReadMutator;
@@ -14,6 +26,7 @@ import java.lang.reflect.Modifier;
 import java.nio.charset.Charset;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -22,6 +35,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static io.higgs.boson.BosonType.ARRAY;
 import static io.higgs.boson.BosonType.BOOLEAN;
 import static io.higgs.boson.BosonType.BYTE;
+import static io.higgs.boson.BosonType.BYTE_ARRAY;
 import static io.higgs.boson.BosonType.CHAR;
 import static io.higgs.boson.BosonType.DOUBLE;
 import static io.higgs.boson.BosonType.ENUM;
@@ -41,6 +55,7 @@ import static io.higgs.boson.BosonType.RESPONSE_PARAMETERS;
 import static io.higgs.boson.BosonType.SET;
 import static io.higgs.boson.BosonType.SHORT;
 import static io.higgs.boson.BosonType.STRING;
+import static java.lang.String.format;
 
 /**
  * @author Courtney Robinson <courtney@crlog.info>
@@ -51,7 +66,7 @@ public class BosonWriter {
      */
     public static final int MAX_RECURSION_DEPTH = 10;
     public static final Charset utf8 = Charset.forName("utf-8");
-    protected final HashMap<Object, Integer> references = new HashMap<>();
+    protected final HashMap<Integer, Integer> references = new HashMap<>();
     protected final AtomicInteger reference = new AtomicInteger();
     protected final Set<ReadMutator> mutators;
     private Logger log = LoggerFactory.getLogger(getClass());
@@ -189,10 +204,11 @@ public class BosonWriter {
         writeString(buf, param.toString()); //enum value
     }
 
-    public void writeList(ByteBuf buffer, List<Object> value) {
+    public void writeList(ByteBuf buffer, Iterator value, int size) {
         buffer.writeByte(LIST); //type
-        buffer.writeInt(value.size()); //size
-        for (Object param : value) {
+        buffer.writeInt(size); //size
+        while (value.hasNext()) {
+            Object param = value.next();
             if (param == null) {
                 writeNull(buffer);
             } else {
@@ -227,6 +243,12 @@ public class BosonWriter {
         }
     }
 
+    public void writeByteArray(ByteBuf buffer, byte[] value) {
+        buffer.writeByte(BYTE_ARRAY); //type
+        buffer.writeInt(value.length); //size
+        buffer.writeBytes(value); //payload
+    }
+
     public void writeMap(ByteBuf buffer, Map<?, ?> value) {
         buffer.writeByte(MAP); //type
         buffer.writeInt(value.size()); //size
@@ -253,17 +275,34 @@ public class BosonWriter {
         }
         Map<String, Object> data = new HashMap<>();
         Class<?> klass = obj.getClass();
-        ReadMutator mutator = null;
-        for (ReadMutator m : mutators) {
-            if (m.canReadFields(klass, obj)) {
-                mutator = m;
-                break;
+        if (obj instanceof JsonNode) {
+            if (obj instanceof ObjectNode) {
+                Iterator<Map.Entry<String, JsonNode>> it = ((ObjectNode) obj).fields();
+                while (it.hasNext()) {
+                    Map.Entry<String, JsonNode> e = it.next();
+                    data.put(e.getKey(), e.getValue());
+                }
+            } else if (obj instanceof ArrayNode) {
+                for (int i = 0; i < ((ArrayNode) obj).size(); i++) {
+                    data.put(String.valueOf(i), ((ArrayNode) obj).get(i));
+                }
+            } else {
+                throw new IllegalStateException(format("Found %s, only array and object types are supported as POLOs",
+                        klass.getName()));
             }
-        }
-        if (mutator != null) {
-            writePoloFieldsViaMutator(mutator, klass, obj, data);
         } else {
-            writePoloFieldsViaReflection(klass, obj, data);
+            ReadMutator mutator = null;
+            for (ReadMutator m : mutators) {
+                if (m.canReadFields(klass, obj)) {
+                    mutator = m;
+                    break;
+                }
+            }
+            if (mutator != null) {
+                writePoloFieldsViaMutator(mutator, klass, obj, data);
+            } else {
+                writePoloFieldsViaReflection(klass, obj, data);
+            }
         }
         //if at least one field is allowed to be serialized
         buffer.writeByte(POLO); //type
@@ -299,6 +338,9 @@ public class BosonWriter {
             if (ignoreInheritedFields && klass != field.getDeclaringClass()) {
                 continue;
             }
+            if (Modifier.isTransient(field.getModifiers())) {
+                continue; //user doesn't want field serialised
+            }
             if (Modifier.isFinal(field.getModifiers())) {
                 continue; //no point in serializing final fields
             }
@@ -324,7 +366,7 @@ public class BosonWriter {
                 try {
                     data.put(name, field.get(obj));
                 } catch (IllegalAccessException e) {
-                    log.warn(String.format("Unable to access field %s in class %s", field.getName(),
+                    log.warn(format("Unable to access field %s in class %s", field.getName(),
                             field.getDeclaringClass().getName()), e);
                 }
             }
@@ -357,12 +399,32 @@ public class BosonWriter {
                 writeChar(buffer, (Character) param);
             } else if (param instanceof String || String.class.isAssignableFrom(param.getClass())) {
                 writeString(buffer, (String) param);
+            } else if (param instanceof TextNode) {
+                writeString(buffer, ((TextNode) param).textValue());
+            } else if (param instanceof ShortNode) {
+                writeShort(buffer, ((ShortNode) param).shortValue());
+            } else if (param instanceof IntNode) {
+                writeInt(buffer, ((IntNode) param).intValue());
+            } else if (param instanceof LongNode) {
+                writeLong(buffer, ((LongNode) param).longValue());
+            } else if (param instanceof DoubleNode) {
+                writeDouble(buffer, ((DoubleNode) param).doubleValue());
+            } else if (param instanceof FloatNode) {
+                writeFloat(buffer, ((FloatNode) param).floatValue());
+            } else if (param instanceof BooleanNode) {
+                writeBoolean(buffer, ((BooleanNode) param).booleanValue());
+            } else if (param instanceof NullNode) {
+                writeNull(buffer);
+            } else if (param instanceof BinaryNode) {
+                writeByteArray(buffer, ((BinaryNode) param).binaryValue());
             } else if (param instanceof List || List.class.isAssignableFrom(param.getClass())) {
-                writeList(buffer, (List<Object>) param);
+                writeList(buffer, ((List<Object>) param).iterator(), ((List<Object>) param).size());
             } else if (param instanceof Set || Set.class.isAssignableFrom(param.getClass())) {
                 writeSet(buffer, (Set<Object>) param);
             } else if (param instanceof Map || Map.class.isAssignableFrom(param.getClass())) {
                 writeMap(buffer, (Map<Object, Object>) param);
+            } else if (param instanceof byte[]) {
+                writeByteArray(buffer, (byte[]) param);
             } else if (param.getClass().isArray()) {
                 //array values can be reference types but not the arrays themselves
                 writeArray(buffer, (Object[]) param);
@@ -373,13 +435,16 @@ public class BosonWriter {
                     throw new UnsupportedOperationException("Cannot serialize throwable", (Throwable) param);
                 }
                 //in reference list?
-                Integer ref = references.get(param);
+                //can't use param.hashCode because recursive objects will StackOverFlow computing it in some cases
+                //e.g. Jackson's ObjectNode
+                int systemHashCode = System.identityHashCode(param);
+                Integer ref = references.get(systemHashCode);
                 //no
                 if (ref == null) {
                     //assign unique reference number
                     ref = reference.getAndIncrement();
                     //add to reference list
-                    references.put(param, ref);
+                    references.put(systemHashCode, ref);
                     writePolo(buffer, param, ref);
                 } else {
                     //yes -  write reference
