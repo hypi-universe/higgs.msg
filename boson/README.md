@@ -1,6 +1,6 @@
 # Boson Protocol version 1
 
-Boson is a language independent binary protocol for object serialization and remote method invocation.
+Boson is a language independent binary protocol for object serialization.
 While the base types are based on Java's primitives, the bit size of data type is given
 to make it uniform across languages.
 
@@ -27,6 +27,7 @@ See [Java datatypes](http://docs.oracle.com/javase/tutorial/java/nutsandbolts/da
 # Structures
 
 + __array__ => An ordered set of items, the items can be any valid Boson data type
++ __byte array__ => Support for fields that are declared as `byte[]`
 + __list__ => An un-ordered group of items, the items can be any valid Boson data type
 + __set__ => An un-ordered group of __unique__ items, the items can be any valid Boson data type
 + __map__ => A set of key value pairs, both keys and values can be any valid Boson data type, including map itself
@@ -85,6 +86,7 @@ To indicate a type use a single byte which corresponds to the following data typ
 + __REFERENCE__ => 15
 + __set__ => 16
 + __enum__ => 17
++ __byte_array__ => 18
 
 ### Indicating size
 
@@ -105,6 +107,7 @@ of the message.
 + __string__ => 4 bytes (int) - this is the total number of bytes that make up the whole string i.e. size of all
 				chars in the string __NOT__ the number of chars but the size of all the chars when converted to bytes
 + __array__ => 4 bytes  - This is __not the total bytes__ it is a __count/sum__ of how many items are in the array
++ __byte_array__ => 4 bytes  - This __is the total bytes__ i.e. `byte[].length`
 + __list__ => 4 bytes  - This is __not the total bytes__ it is a __count/sum__ of how many items are in the list
 + __set__ => 4 bytes  - This is __not the total bytes__ it is a __count/sum__ of how many items are in the set
 + __map__ => 4 bytes  - This is __not the total bytes__ it is a __count/sum__ of how many items are in the map
@@ -122,6 +125,13 @@ of the message.
 1. To write an array first write the type
 2. followed by the total number of elements in the array.
 3. Next, write each element according to the rules for each type, __in order__.
+
+####  byte array
+ A byte array is simply boson type, byte array length and the bytes.
+
+1. To write an array first write the type
+2. followed by the length of the array.
+3. Next, write the contents of the byte array.
 
 ####  list
 The rules for a list are the same as an array , __EXCEPT__ Do not write component types and the order of elements does not matter
@@ -166,70 +176,3 @@ __Values can be empty but not names__. If a field name is null, skip and do not 
 The following is a simple flow chart of the above process
 
 ![Boson POLO serialization](polo-serialization.png?raw=true)
-
-
-RPC Serialization
----
-
-To allow for other data types to be added and be continuous both connection and responses will use types starting from -127 in increasing order.
-
-# Request
-
-A connection has 3 components to it.
-
-1. __method__ => A remote method name, this is a __string__ of arbitrary length/content used to identify which method is invoked on the remote service.
-2. __callback__ => A __string__ which contains the name of the function to be invoked on the client when a response is received for a given connection.
-3. __parameters__ => An __array__ of values, which can be any valid boson data type, these are the __ordered__ parameters that will be passed to the remote method.
-
-The order the method name, callback and parameters are sent in __must be (method,callback,parameters)__.
-This will allow partial de-serialization and make de-serializing POLOs easier in statically typed languages
-
-### Types/Flags
-
-+ __method name__   -127 (minus one hundred and twenty seven)
-+ __parameters__   -126 (minus one hundred and twenty six)
-+ __callback__   -125 (minus one hundred and twenty five)
-
-### Serialization
-
-1. Write the connection type (-127,-126 or -125)
-2. Write the contents of the connection type using the rules for that content's type ( e.g if its an int write int flag then the int)
-
-# Response
-
-A connection has 2 components to it.
-
-1. __method__ => A __string__ which contains the name of the function to be invoked on the client when the response is received.
-3. __parameters__ => An __array__ of values, which can be any valid boson data type, these are the __ordered__ parameters that will be passed to the function on the client side.
-Functions only return a single value but if the remote service wants to provide additional data such as an error message, or flag it can do so in this array.
-
-If the length of the array in the second component is more than 1 then the __first__ value must always be the value of the response returned from the invoked function.
-
-If the client callback only accept a single parameter (the response) then the client should, optionally log all the other fields received in the response array.
-
-
-### Types/Flags
-
-+ __method name__   -124 (minus one hundred and twenty four)
-+ __parameters__   -123 (minus one hundred and twenty three)
-
-### Serialization
-
-1. Write the response type (-124,-123)
-2. Write the contents of the response type using the rules for that content's type ( e.g if its an int write int flag then the int)
-
-The order the method name and parameters are sent in __must be (method,parameters)__.
-This will allow partial de-serialization and make de-serializing POLOs easier in statically typed languages
-
-Streaming (Protocol version 2)
----------
-
-An optional component of the protocol is to support streaming. Since Boson is a binary protocol as such, there are
-going to be times when a 2GB size limit is not enough.
-
-For now, this section will not be rigidly specified but as a vague idea:
-Streaming can be supported by, in all cases where a size would have otherwise been specified, it is omitted.
-So a value is only type followed by the type's payload. All data following the type is assumed to be part of the
-type's content until an end of type token is received.
-
-Once the end of type token is received, the type of the next value must follow, and so on...
