@@ -51,7 +51,7 @@ import static io.higgs.boson.BosonType.STRING;
 import static java.lang.String.format;
 
 /**
- * @author Courtney Robinson <courtney@crlog.info>
+ * The Boson object serialiser
  */
 public class BosonWriter {
   /**

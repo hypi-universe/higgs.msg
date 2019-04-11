@@ -1,7 +1,7 @@
 package io.higgs.boson;
 
 /**
- * @author Courtney Robinson <courtney@crlog.info>
+ * Defines all the Boson types
  */
 public class BosonType {
   public static final int BYTE = 1;

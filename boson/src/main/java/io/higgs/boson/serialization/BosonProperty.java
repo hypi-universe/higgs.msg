@@ -7,8 +7,6 @@ import java.lang.annotation.Target;
 
 /**
  * Explicitly register an object's field to be serialized or ignored
- *
- * @author Courtney Robinson <courtney@crlog.info>
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ ElementType.FIELD, ElementType.TYPE, ElementType.METHOD })
@@ -17,14 +15,14 @@ public @interface BosonProperty {
      * Optionally provide a name for this field.
      * If no name is provided, by default the variable name is used
      *
-     * @return
+     * @return some value
      */
     String value() default "";
 
     /**
      * Mark this field ignored, doing this causes the field not to be serialized
      *
-     * @return
+     * @return false by default
      */
     boolean ignore() default false;
 
