@@ -62,6 +62,7 @@ public class BosonWriter {
   protected final HashMap<Integer, Integer> references = new HashMap<>();
   protected final AtomicInteger reference = new AtomicInteger();
   private Logger log = LoggerFactory.getLogger(getClass());
+  private final int version = 1;
 
   public BosonWriter() {
   }
@@ -76,6 +77,7 @@ public class BosonWriter {
     ByteArrayOutputStream arr = new ByteArrayOutputStream();
     DataOutputStream buffer = new DataOutputStream(arr);
     try {
+      buffer.writeByte(version);
       validateAndWriteType(buffer, msg);
     } catch (IOException ioe) {
       throw new InvalidDataException("Serialisation error", ioe);
@@ -253,7 +255,7 @@ public class BosonWriter {
       ignoreInheritedFields = klass.getAnnotation(propertyClass).ignoreInheritedFields();
     }
     //get ALL (private,private,protect,package) fields declared in the class - includes inherited fields
-    Set<Field> fields = ReflectionUtil.getAllFields(new HashSet<Field>(), klass, 0);
+    Set<Field> fields = ReflectionUtil.getAllFields(new HashSet<>(), klass, 0);
     for (Field field : fields) {
       //if inherited fields are to be ignored then fields must be declared in the current class
       if (ignoreInheritedFields && klass != field.getDeclaringClass()) {
