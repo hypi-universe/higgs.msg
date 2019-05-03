@@ -18,6 +18,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayInputStream;
+import java.io.DataInput;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
@@ -73,11 +74,11 @@ public class BosonReader {
   }
 
   public <T> T deSerialise(byte[] data) {
-    DataInputStream buf = new DataInputStream(new ByteArrayInputStream(data));
+    DataInput buf = new DataInputStream(new ByteArrayInputStream(data));
     return deSerialise(buf);
   }
 
-  public <T> T deSerialise(DataInputStream buf) {
+  public <T> T deSerialise(DataInput buf) {
     try {
       byte dataVersion = buf.readByte();
       if (version != dataVersion) {
@@ -97,9 +98,9 @@ public class BosonReader {
    *
    * @throws InvalidDataException if buffer is not readable
    */
-  private void verifyReadable(DataInputStream data) {
+  private void verifyReadable(DataInput data) {
     try {
-      if (data.available() == 0) {
+      if (data instanceof DataInputStream && ((DataInputStream) data).available() == 0) {
         throw new InvalidDataException(invalidMsgStr, null);
       }
     } catch (IOException ioe) {
@@ -116,7 +117,7 @@ public class BosonReader {
    * @param verifiedType the data type to be de-serialized
    * @return the string
    */
-  private String readString(DataInputStream data, boolean verified, int verifiedType) throws IOException {
+  private String readString(DataInput data, boolean verified, int verifiedType) throws IOException {
     int type = verifiedType;
     if (!verified) {
       type = data.readByte();
@@ -130,14 +131,14 @@ public class BosonReader {
       }
       //read type's payload and de-serialize
       byte[] bytes = new byte[size];
-      data.read(bytes);
+      data.readFully(bytes, 0, size);
       return new String(bytes, Charset.forName("utf8"));
     } else {
       throw new UnsupportedBosonTypeException(format("type %s is not a Boson STRING", type), null);
     }
   }
 
-  private Enum readEnum(DataInputStream data, boolean verified, int verifiedType) throws IOException {
+  private Enum readEnum(DataInput data, boolean verified, int verifiedType) throws IOException {
     int type = verifiedType;
     if (!verified) {
       type = data.readByte();
@@ -177,7 +178,7 @@ public class BosonReader {
    * @param verifiedType the data type to be de-serialized
    * @return the byte
    */
-  private byte readByte(DataInputStream data, boolean verified, int verifiedType) throws IOException {
+  private byte readByte(DataInput data, boolean verified, int verifiedType) throws IOException {
     int type = verifiedType;
     if (!verified) {
       type = data.readByte();
@@ -198,7 +199,7 @@ public class BosonReader {
    * @param verifiedType the data type to be de-serialized
    * @return the short
    */
-  private short readShort(DataInputStream data, boolean verified, int verifiedType) throws IOException {
+  private short readShort(DataInput data, boolean verified, int verifiedType) throws IOException {
     int type = verifiedType;
     if (!verified) {
       type = data.readByte();
@@ -219,7 +220,7 @@ public class BosonReader {
    * @param verifiedType the data type to be de-serialized
    * @return the int
    */
-  private int readInt(DataInputStream data, boolean verified, int verifiedType) throws IOException {
+  private int readInt(DataInput data, boolean verified, int verifiedType) throws IOException {
     int type = verifiedType;
     if (!verified) {
       type = data.readByte();
@@ -240,7 +241,7 @@ public class BosonReader {
    * @param verifiedType the data type to be de-serialized
    * @return the long
    */
-  private long readLong(DataInputStream data, boolean verified, int verifiedType) throws IOException {
+  private long readLong(DataInput data, boolean verified, int verifiedType) throws IOException {
     int type = verifiedType;
     if (!verified) {
       type = data.readByte();
@@ -261,7 +262,7 @@ public class BosonReader {
    * @param verifiedType the data type to be de-serialized
    * @return the float
    */
-  private float readFloat(DataInputStream data, boolean verified, int verifiedType) throws IOException {
+  private float readFloat(DataInput data, boolean verified, int verifiedType) throws IOException {
     int type = verifiedType;
     if (!verified) {
       type = data.readByte();
@@ -282,7 +283,7 @@ public class BosonReader {
    * @param verifiedType the data type to be de-serialized
    * @return the double
    */
-  private double readDouble(DataInputStream data, boolean verified, int verifiedType) throws IOException {
+  private double readDouble(DataInput data, boolean verified, int verifiedType) throws IOException {
     int type = verifiedType;
     if (!verified) {
       type = data.readByte();
@@ -303,7 +304,7 @@ public class BosonReader {
    * @param verifiedType the data type to be de-serialized
    * @return the boolean
    */
-  private boolean readBoolean(DataInputStream data, boolean verified, int verifiedType) throws IOException {
+  private boolean readBoolean(DataInput data, boolean verified, int verifiedType) throws IOException {
     int type = verifiedType;
     if (!verified) {
       type = data.readByte();
@@ -324,7 +325,7 @@ public class BosonReader {
    * @param verifiedType the data type to be de-serialized
    * @return the char
    */
-  private char readChar(DataInputStream data, boolean verified, int verifiedType) throws IOException {
+  private char readChar(DataInput data, boolean verified, int verifiedType) throws IOException {
     int type = verifiedType;
     if (!verified) {
       type = data.readByte();
@@ -346,7 +347,7 @@ public class BosonReader {
    * @param verifiedType the data type to be de-serialized
    * @return the array
    */
-  private Object[] readArray(DataInputStream data, boolean verified, int verifiedType) throws IOException {
+  private Object[] readArray(DataInput data, boolean verified, int verifiedType) throws IOException {
     int type = verifiedType;
     if (!verified) {
       type = data.readByte();
@@ -365,7 +366,7 @@ public class BosonReader {
     }
   }
 
-  private byte[] readByteArray(DataInputStream data, boolean verified, int verifiedType) throws IOException {
+  private byte[] readByteArray(DataInput data, boolean verified, int verifiedType) throws IOException {
     int type = verifiedType;
     if (!verified) {
       type = data.readByte();
@@ -374,7 +375,7 @@ public class BosonReader {
       //read number of elements in the array
       int size = data.readInt();
       byte[] arr = new byte[size];
-      data.read(arr);
+      data.readFully(arr, 0, size);
       return arr;
     } else {
       throw new UnsupportedBosonTypeException(format("type %s is not a Boson ARRAY", type), null);
@@ -389,7 +390,7 @@ public class BosonReader {
    * @param verifiedType the data type to be de-serialized
    * @return the list
    */
-  private List<Object> readList(DataInputStream data, boolean verified, int verifiedType) throws IOException {
+  private List<Object> readList(DataInput data, boolean verified, int verifiedType) throws IOException {
     int type = verifiedType;
     if (!verified) {
       type = data.readByte();
@@ -411,7 +412,7 @@ public class BosonReader {
     }
   }
 
-  private Set<Object> readSet(DataInputStream data, boolean verified, int verifiedType) throws IOException {
+  private Set<Object> readSet(DataInput data, boolean verified, int verifiedType) throws IOException {
     int type = verifiedType;
     if (!verified) {
       type = data.readByte();
@@ -441,7 +442,7 @@ public class BosonReader {
    * @param verifiedType the data type to be de-serialized
    * @return the map
    */
-  private Map<Object, Object> readMap(DataInputStream data, boolean verified, int verifiedType) throws IOException {
+  private Map<Object, Object> readMap(DataInput data, boolean verified, int verifiedType) throws IOException {
     int type = verifiedType;
     if (!verified) {
       type = data.readByte();
@@ -463,7 +464,7 @@ public class BosonReader {
     }
   }
 
-  private Object readPolo(DataInputStream data, boolean verified, int verifiedType) throws IOException {
+  private Object readPolo(DataInput data, boolean verified, int verifiedType) throws IOException {
     int type = verifiedType;
     if (!verified) {
       type = data.readByte();
@@ -492,7 +493,7 @@ public class BosonReader {
     }
   }
 
-  private Object readJson(DataInputStream data, boolean isArray, int ref, int size) throws IOException {
+  private Object readJson(DataInput data, boolean isArray, int ref, int size) throws IOException {
     JsonNode instance = isArray ? mapper.createArrayNode() : mapper.createObjectNode();
     references.put(ref, instance);
     for (int i = 0; i < size; i++) {
@@ -512,7 +513,7 @@ public class BosonReader {
     return instance;
   }
 
-  private Object readPoloReflection(DataInputStream data, String poloClassName, int ref, int size) throws IOException {
+  private Object readPoloReflection(DataInput data, String poloClassName, int ref, int size) throws IOException {
     //try to load the class if available
     Class<?> klass;
     try {
@@ -599,7 +600,7 @@ public class BosonReader {
     return instance;
   }
 
-  private Object readReference(DataInputStream data, final boolean verified, int verifiedType) throws IOException {
+  private Object readReference(DataInput data, final boolean verified, int verifiedType) throws IOException {
     int type = verifiedType;
     if (!verified) {
       type = data.readByte();
@@ -621,7 +622,7 @@ public class BosonReader {
    * @param type the 1 byte integer representing a Boson type
    * @return the type
    */
-  private Object readType(DataInputStream data, int type) throws IOException {
+  private Object readType(DataInput data, int type) throws IOException {
     switch (type) {
       case BYTE:
         return readByte(data, true, type);
@@ -691,7 +692,7 @@ public class BosonReader {
     }
   }
 
-  private Object readType(DataInputStream buffer) throws IOException {
+  private Object readType(DataInput buffer) throws IOException {
     return readType(buffer, buffer.readByte());
   }
 
