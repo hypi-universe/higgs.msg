@@ -19,6 +19,7 @@ import org.slf4j.LoggerFactory;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.nio.charset.Charset;
@@ -54,15 +55,16 @@ import static java.lang.String.format;
  * The Boson object serialiser
  */
 public class BosonWriter {
-  /**
-   * The maximum number of times methods can invoked themselves.
-   */
-  private static final int MAX_RECURSION_DEPTH = 10;
   private static final Charset utf8 = Charset.forName("utf-8");
   protected final HashMap<Integer, Integer> references = new HashMap<>();
   protected final AtomicInteger reference = new AtomicInteger();
   private Logger log = LoggerFactory.getLogger(getClass());
   private final int version = 1;
+  private boolean serialiseFinalFields;
+
+  public BosonWriter(boolean serialiseFinalFields) {
+    this.serialiseFinalFields = serialiseFinalFields;
+  }
 
   public BosonWriter() {
   }
@@ -177,11 +179,13 @@ public class BosonWriter {
    *
    * @param value the value to write
    */
-  private void writeArray(DataOutputStream buffer, Object[] value) throws IOException {
+  private void writeArray(DataOutputStream buffer, Object value) throws IOException {
     buffer.writeByte(ARRAY); //type
-    buffer.writeInt(value.length); //size
-    for (Object param : value) {
-      validateAndWriteType(buffer, param); //payload
+    int length = Array.getLength(value);
+    buffer.writeInt(length); //size
+    writeString(buffer, value.getClass().getComponentType().getName()); //component type
+    for (int i = 0; i < length; i++) {
+      validateAndWriteType(buffer, Array.get(value, i)); //payload
     }
   }
 
@@ -264,7 +268,7 @@ public class BosonWriter {
       if (Modifier.isTransient(field.getModifiers())) {
         continue; //user doesn't want field serialised
       }
-      if (Modifier.isFinal(field.getModifiers())) {
+      if (serialiseFinalFields && Modifier.isFinal(field.getModifiers())) {
         continue; //no point in serializing final fields
       }
       field.setAccessible(true);
@@ -349,8 +353,7 @@ public class BosonWriter {
       } else if (param instanceof byte[]) {
         writeByteArray(buffer, (byte[]) param);
       } else if (param.getClass().isArray()) {
-        //array values can be reference types but not the arrays themselves
-        writeArray(buffer, (Object[]) param);
+        writeArray(buffer, param);
       } else if (param instanceof Enum || Enum.class.isAssignableFrom(param.getClass())) {
         writeEnum(buffer, (Enum) param);
       } else {

@@ -27,6 +27,7 @@ public class BosonWriterTest {
     Map stringMap = new HashMap<>();
     Map mixed = new HashMap<>();
     mixed.put("int", 1);
+    mixed.put("int-array", new int[]{3, 4, 2, 5});
     mixed.put("long", 2L);
     mixed.put("byte", (byte) 3);
     mixed.put("short", (short) 4);

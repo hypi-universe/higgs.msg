@@ -124,7 +124,8 @@ of the message.
 
 1. To write an array first write the type
 2. followed by the total number of elements in the array.
-3. Next, write each element according to the rules for each type, __in order__.
+3. Write the component type of the array as a string
+4. Next, write each element according to the rules for each type, __in order__.
 
 ####  byte array
  A byte array is simply boson type, byte array length and the bytes.
