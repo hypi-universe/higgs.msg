@@ -1,9 +1,8 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <groupId>io.higgs</groupId>
     <artifactId>higgs.msg</artifactId>
-    <version>0.5.1-SNAPSHOT</version>
+    <version>0.6.0</version>
     <name>${project.artifactId}</name>
     <description>A fast, self-describing binary message library</description>
     <inceptionYear>2012</inceptionYear>
@@ -21,7 +20,7 @@
         <connection>scm:git:git@github.com:hypi-universe/higgs.msg.git</connection>
         <developerConnection>scm:git:git@github.com:hypi-universe/higgs.msg.git</developerConnection>
         <url>git@github.com:hypi-universe/higgs.msg.git</url>
-        <tag>HEAD</tag>
+        <tag>higgs.msg-0.6.0</tag>
     </scm>
     <developers>
         <developer>
@@ -98,7 +97,7 @@
                         <id>enforce</id>
                         <configuration>
                             <rules>
-                                <dependencyConvergence/>
+                                <dependencyConvergence />
                             </rules>
                         </configuration>
                         <goals>
