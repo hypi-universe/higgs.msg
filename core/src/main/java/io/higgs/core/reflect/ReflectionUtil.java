@@ -113,9 +113,9 @@ public final class ReflectionUtil {
    */
   public static boolean isNumeric(Class<?> klass) {
     return isIntLike(klass) ||
-             isFractionalLike(klass) ||
-             isShort(klass) ||
-             isByte(klass);
+      isFractionalLike(klass) ||
+      isShort(klass) ||
+      isByte(klass);
   }
 
   public static boolean isIntLike(Class<?> klass) {
@@ -136,37 +136,37 @@ public final class ReflectionUtil {
 
   public static boolean isByte(Class<?> klass) {
     return Byte.class.isAssignableFrom(klass) ||
-             byte.class.isAssignableFrom(klass);
+      byte.class.isAssignableFrom(klass);
   }
 
   public static boolean isShort(Class<?> klass) {
     return Short.class.isAssignableFrom(klass) ||
-             short.class.isAssignableFrom(klass);
+      short.class.isAssignableFrom(klass);
   }
 
   public static boolean isFractional(Class<?> klass) {
     return isDouble(klass) ||
-             isFloat(klass);
+      isFloat(klass);
   }
 
   public static boolean isFloat(Class<?> klass) {
     return Float.class.isAssignableFrom(klass) ||
-             float.class.isAssignableFrom(klass);
+      float.class.isAssignableFrom(klass);
   }
 
   public static boolean isDouble(Class<?> klass) {
     return Double.class.isAssignableFrom(klass) ||
-             double.class.isAssignableFrom(klass);
+      double.class.isAssignableFrom(klass);
   }
 
   public static boolean isLong(Class<?> klass) {
     return Long.class.isAssignableFrom(klass) ||
-             long.class.isAssignableFrom(klass);
+      long.class.isAssignableFrom(klass);
   }
 
   public static boolean isInt(Class<?> klass) {
     return Integer.class.isAssignableFrom(klass) ||
-             int.class.isAssignableFrom(klass);
+      int.class.isAssignableFrom(klass);
   }
 
   public static boolean isString(Class<?> cls) {
@@ -175,8 +175,8 @@ public final class ReflectionUtil {
 
   public static boolean isStringLike(Class<?> cls) {
     return isString(cls)
-             || isUUID(cls)
-             || Duration.class.isAssignableFrom(cls);
+      || isUUID(cls)
+      || Duration.class.isAssignableFrom(cls);
   }
 
   public static boolean isEnum(Class cls) {
@@ -193,9 +193,9 @@ public final class ReflectionUtil {
 
   public static boolean isDate(Class<?> cls) {
     return Date.class.isAssignableFrom(cls)
-             || DateTime.class.isAssignableFrom(cls)
-             || Temporal.class.isAssignableFrom(cls)
-             || java.sql.Date.class.isAssignableFrom(cls);
+      || DateTime.class.isAssignableFrom(cls)
+      || Temporal.class.isAssignableFrom(cls)
+      || java.sql.Date.class.isAssignableFrom(cls);
   }
 
   public static boolean isCollection(Class<?> cls) {
@@ -224,10 +224,10 @@ public final class ReflectionUtil {
 
   public static boolean isScalar(Class cls) {
     return isNumeric(cls)
-             || isBool(cls)
-             || isString(cls)
-             || isDate(cls)
-             || isEnum(cls);
+      || isBool(cls)
+      || isString(cls)
+      || isDate(cls)
+      || isEnum(cls);
   }
 
   @SuppressWarnings("unchecked")
@@ -236,12 +236,12 @@ public final class ReflectionUtil {
       return null;
     }
     Class<T> cls = (Class<T>) o.getClass();
-    return copy(o, deep, cls);
+    return copy(o, deep, null, cls);
   }
 
-  public static <T> T copy(T o, boolean deep, Class<T> cls) {
+  public static <T> T copy(T o, boolean deep, T to, Class<T> cls) {
     try {
-      T obj = newInstance(cls);
+      T obj = to == null ? newInstance(cls) : to;
       for (Field field : getAllFields(new LinkedHashSet<>(), cls)) {
         field.setAccessible(true);
         boolean isStatic = Modifier.isStatic(field.getModifiers());
@@ -277,7 +277,7 @@ public final class ReflectionUtil {
     Constructor[] ctors = cls.getDeclaredConstructors();
     if (ctors.length == 0) {
       throw new UnsupportedOperationException("Cannot create object if it is an interface, a primitive type, " +
-                                                "an array class, or void");
+        "an array class, or void");
     }
     T obj = null;
     for (Constructor ctor : ctors) {

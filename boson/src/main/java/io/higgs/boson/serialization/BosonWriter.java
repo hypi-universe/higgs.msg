@@ -268,7 +268,7 @@ public class BosonWriter {
       if (Modifier.isTransient(field.getModifiers())) {
         continue; //user doesn't want field serialised
       }
-      if (serialiseFinalFields && Modifier.isFinal(field.getModifiers())) {
+      if (!serialiseFinalFields && Modifier.isFinal(field.getModifiers())) {
         continue; //no point in serializing final fields
       }
       field.setAccessible(true);
