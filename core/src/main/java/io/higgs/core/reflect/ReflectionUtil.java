@@ -108,6 +108,11 @@ public final class ReflectionUtil {
     }
   }
 
+  /**
+   *
+   * @param klass the class
+   * @return true if klass represents a numeric type, including byte. Both boxed and unboxed.
+   */
   public static boolean isNumeric(Class<?> klass) {
     return isIntLike(klass) ||
       isFractionalLike(klass) ||
