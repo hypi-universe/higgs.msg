@@ -2,7 +2,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>io.higgs</groupId>
     <artifactId>higgs.msg</artifactId>
-    <version>0.3.2-SNAPSHOT</version>
+    <version>0.4.1-SNAPSHOT</version>
     <name>${project.artifactId}</name>
     <description>A fast, self-describing binary message library</description>
     <inceptionYear>2012</inceptionYear>
@@ -20,7 +20,8 @@
         <connection>scm:git:git@github.com:hypi-universe/higgs.msg.git</connection>
         <developerConnection>scm:git:git@github.com:hypi-universe/higgs.msg.git</developerConnection>
         <url>git@github.com:hypi-universe/higgs.msg.git</url>
-    </scm>
+      <tag>HEAD</tag>
+  </scm>
     <developers>
         <developer>
             <id>zcourts</id>
