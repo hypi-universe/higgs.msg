@@ -308,23 +308,23 @@ public class BosonWriter {
     if (param == null) {
       writeNull(buffer);
     } else {
-      if (param instanceof Byte || Byte.class.isAssignableFrom(param.getClass())) {
+      if (param instanceof Byte) {
         writeByte(buffer, (Byte) param);
-      } else if (param instanceof Short || Short.class.isAssignableFrom(param.getClass())) {
+      } else if (param instanceof Short) {
         writeShort(buffer, (Short) param);
-      } else if (param instanceof Integer || Integer.class.isAssignableFrom(param.getClass())) {
+      } else if (param instanceof Integer) {
         writeInt(buffer, (Integer) param);
-      } else if (param instanceof Long || Long.class.isAssignableFrom(param.getClass())) {
+      } else if (param instanceof Long) {
         writeLong(buffer, (Long) param);
-      } else if (param instanceof Float || Float.class.isAssignableFrom(param.getClass())) {
+      } else if (param instanceof Float) {
         writeFloat(buffer, (Float) param);
-      } else if (param instanceof Double || Double.class.isAssignableFrom(param.getClass())) {
+      } else if (param instanceof Double) {
         writeDouble(buffer, (Double) param);
-      } else if (param instanceof Boolean || Boolean.class.isAssignableFrom(param.getClass())) {
+      } else if (param instanceof Boolean) {
         writeBoolean(buffer, (Boolean) param);
-      } else if (param instanceof Character || Character.class.isAssignableFrom(param.getClass())) {
+      } else if (param instanceof Character) {
         writeChar(buffer, (Character) param);
-      } else if (param instanceof String || String.class.isAssignableFrom(param.getClass())) {
+      } else if (param instanceof String) {
         writeString(buffer, (String) param);
       } else if (param instanceof TextNode) {
         writeString(buffer, ((TextNode) param).textValue());
@@ -344,17 +344,17 @@ public class BosonWriter {
         writeNull(buffer);
       } else if (param instanceof BinaryNode) {
         writeByteArray(buffer, ((BinaryNode) param).binaryValue());
-      } else if (param instanceof List || List.class.isAssignableFrom(param.getClass())) {
+      } else if (param instanceof List) {
         writeList(buffer, ((List<Object>) param).iterator(), ((List<Object>) param).size());
-      } else if (param instanceof Set || Set.class.isAssignableFrom(param.getClass())) {
+      } else if (param instanceof Set) {
         writeSet(buffer, (Set<Object>) param);
-      } else if (param instanceof Map || Map.class.isAssignableFrom(param.getClass())) {
+      } else if (param instanceof Map) {
         writeMap(buffer, (Map<Object, Object>) param);
       } else if (param instanceof byte[]) {
         writeByteArray(buffer, (byte[]) param);
       } else if (param.getClass().isArray()) {
         writeArray(buffer, param);
-      } else if (param instanceof Enum || Enum.class.isAssignableFrom(param.getClass())) {
+      } else if (param instanceof Enum) {
         writeEnum(buffer, (Enum) param);
       } else {
         if (param instanceof Throwable) {
