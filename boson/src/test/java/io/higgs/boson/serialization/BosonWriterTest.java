@@ -6,6 +6,8 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
+import static io.higgs.boson.serialization.BosonReader.decode;
+import static io.higgs.boson.serialization.BosonWriter.encode;
 import static java.util.Collections.singleton;
 import static junit.framework.Assert.assertEquals;
 import static org.junit.Assert.assertArrayEquals;
@@ -18,8 +20,6 @@ import static org.junit.Assert.assertNull;
 public class BosonWriterTest {
   @Test
   public void testWriteMap() throws Exception {
-    BosonWriter writer = new BosonWriter();
-    BosonReader reader = new BosonReader();
     String intStr = "int";
     Map<String, Map<String, Object>> map = new HashMap<>();
     Map intMap = new HashMap<>();
@@ -56,8 +56,8 @@ public class BosonWriterTest {
     stringMap.put("a", "a");
     stringMap.put("b", "ab");
     stringMap.put("c", "abc");
-    byte[] bytes = writer.serialize(map);
-    Map<String, Map<String, Object>> out = reader.deSerialise(bytes);
+    byte[] bytes = encode(map);
+    Map<String, Map<String, Object>> out = decode(bytes);
     Map<String, Object> outInt = out.get("int");
     assertEquals(1, outInt.get("a"));
     assertEquals(2, outInt.get("b"));
@@ -91,22 +91,18 @@ public class BosonWriterTest {
 
   @Test
   public void testSerializingEnum() throws Exception {
-    BosonWriter writer = new BosonWriter();
-    BosonReader reader = new BosonReader();
     EnumEnclosingType obj = new EnumEnclosingType(SomeType.B);
-    byte[] out = writer.serialize(obj);
-    EnumEnclosingType in = reader.deSerialise(out);
+    byte[] out = encode(obj);
+    EnumEnclosingType in = decode(out);
     assertNotNull(in);
     assertEquals(obj.value, in.value);
   }
 
   @Test
   public void testSerializingEnumInNestedPOLO() throws Exception {
-    BosonWriter writer = new BosonWriter();
-    BosonReader reader = new BosonReader();
     OuterEnclosingType obj = new OuterEnclosingType();
-    byte[] out = writer.serialize(obj);
-    OuterEnclosingType in = reader.deSerialise(out);
+    byte[] out = encode(obj);
+    OuterEnclosingType in = decode(out);
     assertNotNull(in);
     assertEquals(obj.type.value, in.type.value);
   }

@@ -8,6 +8,8 @@ import org.junit.Test;
 import java.util.HashMap;
 import java.util.Map;
 
+import static io.higgs.boson.serialization.BosonReader.decode;
+import static io.higgs.boson.serialization.BosonWriter.encode;
 import static org.junit.Assert.assertEquals;
 
 public class BosonWriteReadTest {
@@ -15,8 +17,6 @@ public class BosonWriteReadTest {
 
   @Test
   public void readWriteWithJSON() {
-    BosonWriter writer = new BosonWriter();
-    BosonReader reader = new BosonReader();
     Map<String, Object> data = new HashMap<>();
     data.put("short", (short) 1);
     data.put("int", 1);
@@ -38,15 +38,15 @@ public class BosonWriteReadTest {
     arrObjs.add(obj).add(obj);
     arrMixed.add(1).add(obj);
 
-    byte[] objWritten = writer.serialize(obj);
-    byte[] arrPrimWritten = writer.serialize(arrPrim);
-    byte[] arrObjsWritten = writer.serialize(arrObjs);
-    byte[] arrMixedWritten = writer.serialize(arrMixed);
+    byte[] objWritten = encode(obj);
+    byte[] arrPrimWritten = encode(arrPrim);
+    byte[] arrObjsWritten = encode(arrObjs);
+    byte[] arrMixedWritten = encode(arrMixed);
 
-    ObjectNode objRead = reader.deSerialise(objWritten);
-    ArrayNode arrPrimRead = reader.deSerialise(arrPrimWritten);
-    ArrayNode arrObjRead = reader.deSerialise(arrObjsWritten);
-    ArrayNode arrMixedRead = reader.deSerialise(arrMixedWritten);
+    ObjectNode objRead = decode(objWritten);
+    ArrayNode arrPrimRead = decode(arrPrimWritten);
+    ArrayNode arrObjRead = decode(arrObjsWritten);
+    ArrayNode arrMixedRead = decode(arrMixedWritten);
 
     assertEquals(arrPrimRead.toString(), arrPrim.toString());
     assertEquals(obj.get("byte_arr"), objRead.get("byte_arr"));
@@ -61,8 +61,10 @@ public class BosonWriteReadTest {
     //when a ref is read, it's stored and then the same instance is used whereever it is refered to so the system
     //identity hash should match so since ref is recursive, when we get ref, it should return an object which
     //points to itself so getting ref again gives the same object
-    assertEquals(System.identityHashCode(objRead.get("ref").get("ref")),
-      System.identityHashCode(objRead.get("ref")));
+    assertEquals(
+      System.identityHashCode(objRead.get("ref").get("ref")),
+      System.identityHashCode(objRead.get("ref"))
+    );
 
     //Jackson can't serialise the tree because ref is recursive so let's remove it and assert the rest is equal
     //we already test for ref being correct above

@@ -56,17 +56,30 @@ import static java.lang.String.format;
  */
 public class BosonWriter {
   private static final Charset utf8 = Charset.forName("utf-8");
-  protected final HashMap<Integer, Integer> references = new HashMap<>();
-  protected final AtomicInteger reference = new AtomicInteger();
-  private Logger log = LoggerFactory.getLogger(getClass());
-  private final int version = 1;
-  private boolean serialiseFinalFields;
+  private static final Logger log = LoggerFactory.getLogger(BosonWriter.class);
+  private static final BosonWriter instance = new BosonWriter();
 
-  public BosonWriter(boolean serialiseFinalFields) {
-    this.serialiseFinalFields = serialiseFinalFields;
+  public static class WriterCtx {
+    static final byte version = 1;
+    protected final HashMap<Integer, Integer> references = new HashMap<>();
+    protected final AtomicInteger reference = new AtomicInteger();
+    private boolean serialiseFinalFields;
+    private ByteArrayOutputStream arr = new ByteArrayOutputStream();
+    private DataOutputStream buffer = new DataOutputStream(arr);
+
+    public WriterCtx() {
+    }
+
+    public WriterCtx(boolean serialiseFinalFields) {
+      this.serialiseFinalFields = serialiseFinalFields;
+    }
   }
 
-  public BosonWriter() {
+  protected BosonWriter() {
+  }
+
+  public static BosonWriter getInstance() {
+    return instance;
   }
 
   /**
@@ -75,100 +88,110 @@ public class BosonWriter {
    * @param msg the message to serialize
    * @return a series of bytes representing the message
    */
-  public byte[] serialize(Object msg) {
-    ByteArrayOutputStream arr = new ByteArrayOutputStream();
-    DataOutputStream buffer = new DataOutputStream(arr);
+  public static byte[] encode(Object msg) {
+    return encode(msg, new WriterCtx());
+  }
+
+  public static byte[] encode(Object msg, boolean serialiseFinalFields) {
+    return encode(msg, new WriterCtx(serialiseFinalFields));
+  }
+
+  public static byte[] encode(Object msg, WriterCtx ctx) {
+    return encode(msg, ctx, instance);
+  }
+
+  public static byte[] encode(Object msg, WriterCtx ctx, BosonWriter writer) {
     try {
-      buffer.writeByte(version);
-      validateAndWriteType(buffer, msg);
+      ctx.buffer.writeByte(WriterCtx.version);
+      writer.validateAndWriteType(ctx, msg);
     } catch (IOException ioe) {
       throw new InvalidDataException("Serialisation error", ioe);
     }
-    return arr.toByteArray(); //not sure there's a way to avoid the memory copy here
+    return ctx.arr.toByteArray(); //not sure there's a way to avoid the memory copy here
   }
 
-  private void writeByte(DataOutputStream buffer, byte b) throws IOException {
-    buffer.writeByte(BYTE);
-    buffer.writeByte(b);
+  private void writeByte(WriterCtx ctx, byte b) throws IOException {
+    ctx.buffer.writeByte(BYTE);
+    ctx.buffer.writeByte(b);
   }
 
-  private void writeNull(DataOutputStream buffer) throws IOException {
-    buffer.writeByte(NULL);
+  private void writeNull(WriterCtx ctx) throws IOException {
+    ctx.buffer.writeByte(NULL);
   }
 
-  private void writeShort(DataOutputStream buffer, short s) throws IOException {
-    buffer.writeByte(SHORT);
-    buffer.writeShort(s);
+  private void writeShort(WriterCtx ctx, short s) throws IOException {
+    ctx.buffer.writeByte(SHORT);
+    ctx.buffer.writeShort(s);
   }
 
-  private void writeInt(DataOutputStream buffer, int i) throws IOException {
-    buffer.writeByte(INT);
-    buffer.writeInt(i);
+  private void writeInt(WriterCtx ctx, int i) throws IOException {
+    ctx.buffer.writeByte(INT);
+    ctx.buffer.writeInt(i);
   }
 
-  private void writeLong(DataOutputStream buffer, long l) throws IOException {
-    buffer.writeByte(LONG);
-    buffer.writeLong(l);
+  private void writeLong(WriterCtx ctx, long l) throws IOException {
+    ctx.buffer.writeByte(LONG);
+    ctx.buffer.writeLong(l);
   }
 
-  private void writeFloat(DataOutputStream buffer, float f) throws IOException {
-    buffer.writeByte(FLOAT);
-    buffer.writeFloat(f);
+  private void writeFloat(WriterCtx ctx, float f) throws IOException {
+    ctx.buffer.writeByte(FLOAT);
+    ctx.buffer.writeFloat(f);
   }
 
-  private void writeDouble(DataOutputStream buffer, double d) throws IOException {
-    buffer.writeByte(DOUBLE);
-    buffer.writeDouble(d);
+  private void writeDouble(WriterCtx ctx, double d) throws IOException {
+    ctx.buffer.writeByte(DOUBLE);
+    ctx.buffer.writeDouble(d);
   }
 
-  private void writeBoolean(DataOutputStream buffer, boolean b) throws IOException {
-    buffer.writeByte(BOOLEAN);
+  private void writeBoolean(WriterCtx ctx, boolean b) throws IOException {
+    ctx.buffer.writeByte(BOOLEAN);
     if (b) {
-      buffer.writeByte(1);
+      ctx.buffer.writeByte(1);
     } else {
-      buffer.writeByte(0);
+      ctx.buffer.writeByte(0);
     }
   }
 
-  private void writeChar(DataOutputStream buffer, char c) throws IOException {
-    buffer.writeByte(CHAR);
-    buffer.writeChar(c);
+  private void writeChar(WriterCtx ctx, char c) throws IOException {
+    ctx.buffer.writeByte(CHAR);
+    ctx.buffer.writeChar(c);
   }
 
-  private void writeString(DataOutputStream buffer, String s) throws IOException {
-    buffer.writeByte(STRING); //type
+  private void writeString(WriterCtx ctx, String s) throws IOException {
+    ctx.buffer.writeByte(STRING); //type
     byte[] str = s.getBytes(utf8);
-    buffer.writeInt(str.length); //size
-    buffer.write(str); //payload
+    ctx.buffer.writeInt(str.length); //size
+    ctx.buffer.write(str); //payload
   }
 
-  private void writeEnum(DataOutputStream buf, Enum param) throws IOException {
-    buf.writeByte(ENUM); //type
-    writeString(buf, param.getClass().getName()); //enum class type
-    writeString(buf, param.toString()); //enum value
+  private void writeEnum(WriterCtx ctx, Enum param) throws IOException {
+    ctx.buffer.writeByte(ENUM); //type
+    writeString(ctx, param.getClass().getName()); //enum class type
+    writeString(ctx, param.toString()); //enum value
   }
 
-  private void writeList(DataOutputStream buffer, Iterator value, int size) throws IOException {
-    buffer.writeByte(LIST); //type
-    buffer.writeInt(size); //size
+  private void writeList(WriterCtx ctx, Iterator value, int size) throws IOException {
+    ctx.buffer.writeByte(LIST); //type
+    ctx.buffer.writeInt(size); //size
     while (value.hasNext()) {
       Object param = value.next();
       if (param == null) {
-        writeNull(buffer);
+        writeNull(ctx);
       } else {
-        validateAndWriteType(buffer, param); //payload
+        validateAndWriteType(ctx, param); //payload
       }
     }
   }
 
-  private void writeSet(DataOutputStream buffer, Set<Object> value) throws IOException {
-    buffer.writeByte(SET); //type
-    buffer.writeInt(value.size()); //size
+  private void writeSet(WriterCtx ctx, Set<Object> value) throws IOException {
+    ctx.buffer.writeByte(SET); //type
+    ctx.buffer.writeInt(value.size()); //size
     for (Object param : value) {
       if (param == null) {
-        writeNull(buffer);
+        writeNull(ctx);
       } else {
-        validateAndWriteType(buffer, param); //payload
+        validateAndWriteType(ctx, param); //payload
       }
     }
   }
@@ -179,29 +202,29 @@ public class BosonWriter {
    *
    * @param value the value to write
    */
-  private void writeArray(DataOutputStream buffer, Object value) throws IOException {
-    buffer.writeByte(ARRAY); //type
+  private void writeArray(WriterCtx ctx, Object value) throws IOException {
+    ctx.buffer.writeByte(ARRAY); //type
     int length = Array.getLength(value);
-    buffer.writeInt(length); //size
-    writeString(buffer, value.getClass().getComponentType().getName()); //component type
+    ctx.buffer.writeInt(length); //size
+    writeString(ctx, value.getClass().getComponentType().getName()); //component type
     for (int i = 0; i < length; i++) {
-      validateAndWriteType(buffer, Array.get(value, i)); //payload
+      validateAndWriteType(ctx, Array.get(value, i)); //payload
     }
   }
 
-  private void writeByteArray(DataOutputStream buffer, byte[] value) throws IOException {
-    buffer.writeByte(BYTE_ARRAY); //type
-    buffer.writeInt(value.length); //size
-    buffer.write(value); //payload
+  private void writeByteArray(WriterCtx ctx, byte[] value) throws IOException {
+    ctx.buffer.writeByte(BYTE_ARRAY); //type
+    ctx.buffer.writeInt(value.length); //size
+    ctx.buffer.write(value); //payload
   }
 
-  private void writeMap(DataOutputStream buffer, Map<?, ?> value) throws IOException {
-    buffer.writeByte(MAP); //type
-    buffer.writeInt(value.size()); //size
+  private void writeMap(WriterCtx ctx, Map<?, ?> value) throws IOException {
+    ctx.buffer.writeByte(MAP); //type
+    ctx.buffer.writeInt(value.size()); //size
     for (Object key : value.keySet()) {
       Object v = value.get(key);
-      validateAndWriteType(buffer, key); //key payload
-      validateAndWriteType(buffer, v); //value payload
+      validateAndWriteType(ctx, key); //key payload
+      validateAndWriteType(ctx, v); //value payload
     }
   }
 
@@ -214,9 +237,9 @@ public class BosonWriter {
    * @param obj the object to write
    * @param ref
    */
-  private void writePolo(DataOutputStream buffer, Object obj, int ref) throws IOException {
+  private void writePolo(WriterCtx ctx, Object obj, int ref) throws IOException {
     if (obj == null) {
-      validateAndWriteType(buffer, obj);
+      validateAndWriteType(ctx, obj);
       return;
     }
     Map<String, Object> data = new HashMap<>();
@@ -233,26 +256,28 @@ public class BosonWriter {
           data.put(String.valueOf(i), ((ArrayNode) obj).get(i));
         }
       } else {
-        throw new IllegalStateException(format("Found %s, only array and object types are supported as POLOs",
-          klass.getName()));
+        throw new IllegalStateException(format(
+          "Found %s, only array and object types are supported as POLOs",
+          klass.getName()
+        ));
       }
     } else {
-      writePoloFieldsViaReflection(klass, obj, data);
+      writePoloFieldsViaReflection(ctx, klass, obj, data);
     }
     //if at least one field is allowed to be serialized
-    buffer.writeByte(POLO); //type
+    ctx.buffer.writeByte(POLO); //type
     //write the POLO's reference number
-    buffer.writeInt(ref);
-    writeString(buffer, klass.getName()); //class name
-    buffer.writeInt(data.size()); //size
+    ctx.buffer.writeInt(ref);
+    writeString(ctx, klass.getName()); //class name
+    ctx.buffer.writeInt(data.size()); //size
     for (String key : data.keySet()) {
       Object value = data.get(key);
-      writeString(buffer, key); //key payload must be a string
-      validateAndWriteType(buffer, value); //value payload
+      writeString(ctx, key); //key payload must be a string
+      validateAndWriteType(ctx, value); //value payload
     }
   }
 
-  private void writePoloFieldsViaReflection(Class<?> klass, Object obj, Map<String, Object> data) {
+  private void writePoloFieldsViaReflection(WriterCtx ctx, Class<?> klass, Object obj, Map<String, Object> data) {
     Class<BosonProperty> propertyClass = BosonProperty.class;
     boolean ignoreInheritedFields = false;
     if (klass.isAnnotationPresent(propertyClass)) {
@@ -268,7 +293,7 @@ public class BosonWriter {
       if (Modifier.isTransient(field.getModifiers())) {
         continue; //user doesn't want field serialised
       }
-      if (!serialiseFinalFields && Modifier.isFinal(field.getModifiers())) {
+      if (!ctx.serialiseFinalFields && Modifier.isFinal(field.getModifiers())) {
         continue; //no point in serializing final fields
       }
       field.setAccessible(true);
@@ -294,68 +319,69 @@ public class BosonWriter {
           data.put(name, field.get(obj));
         } catch (IllegalAccessException e) {
           log.warn(format("Unable to access field %s in class %s", field.getName(),
-            field.getDeclaringClass().getName()), e);
+            field.getDeclaringClass().getName()
+          ), e);
         }
       }
     }
   }
 
   /**
-   * @param buffer the buffer to write to
-   * @param param  the param to write to the buffer
+   * @param ctx   the writer ctx
+   * @param param the param to write to the buffer
    */
-  private void validateAndWriteType(DataOutputStream buffer, Object param) throws IOException {
+  private void validateAndWriteType(WriterCtx ctx, Object param) throws IOException {
     if (param == null) {
-      writeNull(buffer);
+      writeNull(ctx);
     } else {
       if (param instanceof Byte) {
-        writeByte(buffer, (Byte) param);
+        writeByte(ctx, (Byte) param);
       } else if (param instanceof Short) {
-        writeShort(buffer, (Short) param);
+        writeShort(ctx, (Short) param);
       } else if (param instanceof Integer) {
-        writeInt(buffer, (Integer) param);
+        writeInt(ctx, (Integer) param);
       } else if (param instanceof Long) {
-        writeLong(buffer, (Long) param);
+        writeLong(ctx, (Long) param);
       } else if (param instanceof Float) {
-        writeFloat(buffer, (Float) param);
+        writeFloat(ctx, (Float) param);
       } else if (param instanceof Double) {
-        writeDouble(buffer, (Double) param);
+        writeDouble(ctx, (Double) param);
       } else if (param instanceof Boolean) {
-        writeBoolean(buffer, (Boolean) param);
+        writeBoolean(ctx, (Boolean) param);
       } else if (param instanceof Character) {
-        writeChar(buffer, (Character) param);
+        writeChar(ctx, (Character) param);
       } else if (param instanceof String) {
-        writeString(buffer, (String) param);
+        writeString(ctx, (String) param);
       } else if (param instanceof TextNode) {
-        writeString(buffer, ((TextNode) param).textValue());
+        writeString(ctx, ((TextNode) param).textValue());
       } else if (param instanceof ShortNode) {
-        writeShort(buffer, ((ShortNode) param).shortValue());
+        writeShort(ctx, ((ShortNode) param).shortValue());
       } else if (param instanceof IntNode) {
-        writeInt(buffer, ((IntNode) param).intValue());
+        writeInt(ctx, ((IntNode) param).intValue());
       } else if (param instanceof LongNode) {
-        writeLong(buffer, ((LongNode) param).longValue());
+        writeLong(ctx, ((LongNode) param).longValue());
       } else if (param instanceof DoubleNode) {
-        writeDouble(buffer, ((DoubleNode) param).doubleValue());
+        writeDouble(ctx, ((DoubleNode) param).doubleValue());
       } else if (param instanceof FloatNode) {
-        writeFloat(buffer, ((FloatNode) param).floatValue());
+        writeFloat(ctx, ((FloatNode) param).floatValue());
       } else if (param instanceof BooleanNode) {
-        writeBoolean(buffer, ((BooleanNode) param).booleanValue());
+        writeBoolean(ctx, ((BooleanNode) param).booleanValue());
       } else if (param instanceof NullNode) {
-        writeNull(buffer);
+        writeNull(ctx);
       } else if (param instanceof BinaryNode) {
-        writeByteArray(buffer, ((BinaryNode) param).binaryValue());
+        writeByteArray(ctx, ((BinaryNode) param).binaryValue());
       } else if (param instanceof List) {
-        writeList(buffer, ((List<Object>) param).iterator(), ((List<Object>) param).size());
+        writeList(ctx, ((List<Object>) param).iterator(), ((List<Object>) param).size());
       } else if (param instanceof Set) {
-        writeSet(buffer, (Set<Object>) param);
+        writeSet(ctx, (Set<Object>) param);
       } else if (param instanceof Map) {
-        writeMap(buffer, (Map<Object, Object>) param);
+        writeMap(ctx, (Map<Object, Object>) param);
       } else if (param instanceof byte[]) {
-        writeByteArray(buffer, (byte[]) param);
+        writeByteArray(ctx, (byte[]) param);
       } else if (param.getClass().isArray()) {
-        writeArray(buffer, param);
+        writeArray(ctx, param);
       } else if (param instanceof Enum) {
-        writeEnum(buffer, (Enum) param);
+        writeEnum(ctx, (Enum) param);
       } else {
         if (param instanceof Throwable) {
           throw new UnsupportedOperationException("Cannot serialize throwable", (Throwable) param);
@@ -364,25 +390,25 @@ public class BosonWriter {
         //can't use param.hashCode because recursive objects will StackOverFlow computing it in some cases
         //e.g. Jackson's ObjectNode
         int systemHashCode = System.identityHashCode(param);
-        Integer ref = references.get(systemHashCode);
+        Integer ref = ctx.references.get(systemHashCode);
         //no
         if (ref == null) {
           //assign unique reference number
-          ref = reference.getAndIncrement();
+          ref = ctx.reference.getAndIncrement();
           //add to reference list
-          references.put(systemHashCode, ref);
-          writePolo(buffer, param, ref);
+          ctx.references.put(systemHashCode, ref);
+          writePolo(ctx, param, ref);
         } else {
           //yes -  write reference
-          writeReference(buffer, ref);
+          writeReference(ctx, ref);
         }
       }
     }
   }
 
-  private void writeReference(DataOutputStream buffer, Integer ref) throws IOException {
+  private void writeReference(WriterCtx ctx, Integer ref) throws IOException {
     //if the object has been written already then write a negative reference
-    buffer.writeByte(REFERENCE);
-    buffer.writeInt(ref);
+    ctx.buffer.writeByte(REFERENCE);
+    ctx.buffer.writeInt(ref);
   }
 }
