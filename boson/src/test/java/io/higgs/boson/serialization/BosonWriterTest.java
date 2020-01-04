@@ -1,8 +1,16 @@
 package io.higgs.boson.serialization;
 
+import org.joda.time.DateTime;
+import org.joda.time.Interval;
 import org.junit.Test;
 
+import java.time.Duration;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.Period;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -87,6 +95,97 @@ public class BosonWriterTest {
     assertArrayEquals(new Object[]{1, "2"}, (Object[]) outMixed.get("array"));
     assertEquals(Arrays.asList(5, 6), outMixed.get("list"));
     assertEquals(singleton(34), outMixed.get("set"));
+  }
+
+  @Test
+  public void testDates() throws Exception {
+    Date expected = new Date();
+    Date actual = decode(encode(expected));
+    assertEquals(expected, actual);
+  }
+
+  @Test
+  public void testLocalDate() throws Exception {
+    LocalDate expected = LocalDate.now();
+    LocalDate actual = decode(encode(expected));
+    assertEquals(expected, actual);
+  }
+
+  @Test
+  public void testLocalDateTime() throws Exception {
+    LocalDateTime expected = LocalDateTime.now();
+    LocalDateTime actual = decode(encode(expected));
+    assertEquals(expected, actual);
+  }
+
+  @Test
+  public void testLocalTime() throws Exception {
+    LocalTime expected = LocalTime.now();
+    LocalTime actual = decode(encode(expected));
+    assertEquals(expected, actual);
+  }
+
+  @Test
+  public void testDuration() throws Exception {
+    Duration expected = Duration.ofMinutes(10);
+    Duration actual = decode(encode(expected));
+    assertEquals(expected, actual);
+  }
+
+  @Test
+  public void testInterval() throws Exception {
+    Period expected = Period.ofDays(17);
+    Period actual = decode(encode(expected));
+    assertEquals(expected, actual);
+  }
+
+  @Test
+  public void testJodaDateTime() throws Exception {
+    DateTime expected = DateTime.now();
+    DateTime actual = decode(encode(expected));
+    assertEquals(expected, actual);
+  }
+
+  @Test
+  public void testJodaLocalDate() throws Exception {
+    org.joda.time.LocalDate expected = org.joda.time.LocalDate.now();
+    org.joda.time.LocalDate actual = decode(encode(expected));
+    assertEquals(expected, actual);
+  }
+
+  @Test
+  public void testJodaLocalDateTime() throws Exception {
+    org.joda.time.LocalDateTime expected = org.joda.time.LocalDateTime.now();
+    org.joda.time.LocalDateTime actual = decode(encode(expected));
+    assertEquals(expected, actual);
+  }
+
+  @Test
+  public void testJodaLocalTime() throws Exception {
+    org.joda.time.LocalTime expected = org.joda.time.LocalTime.now();
+    org.joda.time.LocalTime actual = decode(encode(expected));
+    assertEquals(expected, actual);
+  }
+
+  @Test
+  public void testJodaDuration() throws Exception {
+    org.joda.time.Duration expected = org.joda.time.Duration.standardDays(24);
+    org.joda.time.Duration actual = decode(encode(expected));
+    assertEquals(expected, actual);
+  }
+
+  @Test
+  public void testJodaInterval() throws Exception {
+    Interval expected = new Interval(DateTime.now().minusHours(36), DateTime.now());
+    Interval actual = decode(encode(expected));
+    assertEquals(expected, actual);
+  }
+
+  @Test
+  public void testPeriod() throws Exception {
+    org.joda.time.Period expected = org.joda.time.Period.months(35);
+    org.joda.time.Period actual = decode(encode(expected));
+    assertEquals(expected, actual);
   }
 
   @Test

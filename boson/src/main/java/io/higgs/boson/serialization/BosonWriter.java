@@ -13,6 +13,10 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.ShortNode;
 import com.fasterxml.jackson.databind.node.TextNode;
 import io.higgs.core.reflect.ReflectionUtil;
+import org.joda.time.DateTime;
+import org.joda.time.Interval;
+import org.joda.time.format.ISODateTimeFormat;
+import org.joda.time.format.ISOPeriodFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,6 +27,14 @@ import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.nio.charset.Charset;
+import java.time.Duration;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.Period;
+import java.time.ZoneOffset;
+import java.time.temporal.Temporal;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -36,20 +48,34 @@ import static io.higgs.boson.BosonType.BOOLEAN;
 import static io.higgs.boson.BosonType.BYTE;
 import static io.higgs.boson.BosonType.BYTE_ARRAY;
 import static io.higgs.boson.BosonType.CHAR;
+import static io.higgs.boson.BosonType.DATE;
 import static io.higgs.boson.BosonType.DOUBLE;
+import static io.higgs.boson.BosonType.DURATION;
 import static io.higgs.boson.BosonType.ENUM;
 import static io.higgs.boson.BosonType.FLOAT;
 import static io.higgs.boson.BosonType.INT;
+import static io.higgs.boson.BosonType.JODA_DATETIME;
+import static io.higgs.boson.BosonType.JODA_DURATION;
+import static io.higgs.boson.BosonType.JODA_INTERVAL;
+import static io.higgs.boson.BosonType.JODA_LOCALTIME;
+import static io.higgs.boson.BosonType.JODA_LOCAL_DATE;
+import static io.higgs.boson.BosonType.JODA_LOCAL_DATE_TIME;
+import static io.higgs.boson.BosonType.JODA_PERIOD;
 import static io.higgs.boson.BosonType.LIST;
+import static io.higgs.boson.BosonType.LOCALTIME;
+import static io.higgs.boson.BosonType.LOCAL_DATE;
+import static io.higgs.boson.BosonType.LOCAL_DATETIME;
 import static io.higgs.boson.BosonType.LONG;
 import static io.higgs.boson.BosonType.MAP;
 import static io.higgs.boson.BosonType.NULL;
+import static io.higgs.boson.BosonType.PERIOD;
 import static io.higgs.boson.BosonType.POLO;
 import static io.higgs.boson.BosonType.REFERENCE;
 import static io.higgs.boson.BosonType.SET;
 import static io.higgs.boson.BosonType.SHORT;
 import static io.higgs.boson.BosonType.STRING;
 import static java.lang.String.format;
+import static java.time.ZoneOffset.UTC;
 
 /**
  * The Boson object serialiser
@@ -110,42 +136,92 @@ public class BosonWriter {
     return ctx.arr.toByteArray(); //not sure there's a way to avoid the memory copy here
   }
 
+  private void writeDateLike(WriterCtx ctx, Object param) throws IOException {
+    if (param instanceof Date) {
+      ctx.buffer.writeByte(DATE.id);
+      ctx.buffer.writeLong(((Date) param).getTime());
+    } else if (param instanceof LocalDate) {
+      ctx.buffer.writeByte(LOCAL_DATE.id);
+      ctx.buffer.writeLong(((LocalDate) param).toEpochDay());
+    } else if (param instanceof LocalDateTime) {
+      ctx.buffer.writeByte(LOCAL_DATETIME.id);
+      writeString(ctx, ((LocalDateTime) param).toString());
+    } else if (param instanceof LocalTime) {
+      ctx.buffer.writeByte(LOCALTIME.id);
+      writeString(ctx, ((LocalTime) param).toString());
+    } //todo add other Java 8+ date types
+    else if (param instanceof Duration) {
+      ctx.buffer.writeByte(DURATION.id);
+      //ISO-8601 seconds based representation, such as PT8H6M12.345S.
+      //see https://docs.oracle.com/javase/8/docs/api/java/time/Duration.html#toString--
+      writeString(ctx, param.toString());
+    } else if (param instanceof Period) {
+      ctx.buffer.writeByte(PERIOD.id);
+      //Outputs this period as a String, such as P6Y3M1D.
+      //see https://docs.oracle.com/javase/8/docs/api/java/time/Period.html#toString--
+      writeString(ctx, param.toString());
+    } else if (param instanceof org.joda.time.DateTime) {
+      ctx.buffer.writeByte(JODA_DATETIME.id);
+      ctx.buffer.writeLong(((DateTime) param).getMillis());
+    } else if (param instanceof org.joda.time.LocalDate) {
+      ctx.buffer.writeByte(JODA_LOCAL_DATE.id);
+      writeString(ctx, param.toString()); //ISO8601
+    } else if (param instanceof org.joda.time.LocalDateTime) {
+      ctx.buffer.writeByte(JODA_LOCAL_DATE_TIME.id);
+      writeString(ctx, param.toString()); //Outputs ISO8601
+    } else if (param instanceof org.joda.time.LocalTime) {
+      ctx.buffer.writeByte(JODA_LOCALTIME.id);
+      writeString(ctx, param.toString());//ISO8601 format (HH:mm:ss.SSS).
+    } else if (param instanceof org.joda.time.Duration) {
+      ctx.buffer.writeByte(JODA_DURATION.id);
+      writeString(ctx, param.toString()); //ISO8601
+    } else if (param instanceof org.joda.time.Interval) {
+      ctx.buffer.writeByte(JODA_INTERVAL.id);
+      writeString(ctx, param.toString()); //ISO8601
+    } else if (param instanceof org.joda.time.Period) {
+      ctx.buffer.writeByte(JODA_PERIOD.id);
+      writeString(ctx, ((org.joda.time.Period) param).toString(ISOPeriodFormat.standard()));
+    } else {
+      writeOther(ctx, param);
+    }
+  }
+
   private void writeByte(WriterCtx ctx, byte b) throws IOException {
-    ctx.buffer.writeByte(BYTE);
+    ctx.buffer.writeByte(BYTE.id);
     ctx.buffer.writeByte(b);
   }
 
   private void writeNull(WriterCtx ctx) throws IOException {
-    ctx.buffer.writeByte(NULL);
+    ctx.buffer.writeByte(NULL.id);
   }
 
   private void writeShort(WriterCtx ctx, short s) throws IOException {
-    ctx.buffer.writeByte(SHORT);
+    ctx.buffer.writeByte(SHORT.id);
     ctx.buffer.writeShort(s);
   }
 
   private void writeInt(WriterCtx ctx, int i) throws IOException {
-    ctx.buffer.writeByte(INT);
+    ctx.buffer.writeByte(INT.id);
     ctx.buffer.writeInt(i);
   }
 
   private void writeLong(WriterCtx ctx, long l) throws IOException {
-    ctx.buffer.writeByte(LONG);
+    ctx.buffer.writeByte(LONG.id);
     ctx.buffer.writeLong(l);
   }
 
   private void writeFloat(WriterCtx ctx, float f) throws IOException {
-    ctx.buffer.writeByte(FLOAT);
+    ctx.buffer.writeByte(FLOAT.id);
     ctx.buffer.writeFloat(f);
   }
 
   private void writeDouble(WriterCtx ctx, double d) throws IOException {
-    ctx.buffer.writeByte(DOUBLE);
+    ctx.buffer.writeByte(DOUBLE.id);
     ctx.buffer.writeDouble(d);
   }
 
   private void writeBoolean(WriterCtx ctx, boolean b) throws IOException {
-    ctx.buffer.writeByte(BOOLEAN);
+    ctx.buffer.writeByte(BOOLEAN.id);
     if (b) {
       ctx.buffer.writeByte(1);
     } else {
@@ -154,25 +230,25 @@ public class BosonWriter {
   }
 
   private void writeChar(WriterCtx ctx, char c) throws IOException {
-    ctx.buffer.writeByte(CHAR);
+    ctx.buffer.writeByte(CHAR.id);
     ctx.buffer.writeChar(c);
   }
 
   private void writeString(WriterCtx ctx, String s) throws IOException {
-    ctx.buffer.writeByte(STRING); //type
+    ctx.buffer.writeByte(STRING.id); //type
     byte[] str = s.getBytes(utf8);
     ctx.buffer.writeInt(str.length); //size
     ctx.buffer.write(str); //payload
   }
 
   private void writeEnum(WriterCtx ctx, Enum param) throws IOException {
-    ctx.buffer.writeByte(ENUM); //type
+    ctx.buffer.writeByte(ENUM.id); //type
     writeString(ctx, param.getClass().getName()); //enum class type
     writeString(ctx, param.toString()); //enum value
   }
 
   private void writeList(WriterCtx ctx, Iterator value, int size) throws IOException {
-    ctx.buffer.writeByte(LIST); //type
+    ctx.buffer.writeByte(LIST.id); //type
     ctx.buffer.writeInt(size); //size
     while (value.hasNext()) {
       Object param = value.next();
@@ -185,7 +261,7 @@ public class BosonWriter {
   }
 
   private void writeSet(WriterCtx ctx, Set<Object> value) throws IOException {
-    ctx.buffer.writeByte(SET); //type
+    ctx.buffer.writeByte(SET.id); //type
     ctx.buffer.writeInt(value.size()); //size
     for (Object param : value) {
       if (param == null) {
@@ -203,7 +279,7 @@ public class BosonWriter {
    * @param value the value to write
    */
   private void writeArray(WriterCtx ctx, Object value) throws IOException {
-    ctx.buffer.writeByte(ARRAY); //type
+    ctx.buffer.writeByte(ARRAY.id); //type
     int length = Array.getLength(value);
     ctx.buffer.writeInt(length); //size
     writeString(ctx, value.getClass().getComponentType().getName()); //component type
@@ -213,13 +289,13 @@ public class BosonWriter {
   }
 
   private void writeByteArray(WriterCtx ctx, byte[] value) throws IOException {
-    ctx.buffer.writeByte(BYTE_ARRAY); //type
+    ctx.buffer.writeByte(BYTE_ARRAY.id); //type
     ctx.buffer.writeInt(value.length); //size
     ctx.buffer.write(value); //payload
   }
 
   private void writeMap(WriterCtx ctx, Map<?, ?> value) throws IOException {
-    ctx.buffer.writeByte(MAP); //type
+    ctx.buffer.writeByte(MAP.id); //type
     ctx.buffer.writeInt(value.size()); //size
     for (Object key : value.keySet()) {
       Object v = value.get(key);
@@ -265,7 +341,7 @@ public class BosonWriter {
       writePoloFieldsViaReflection(ctx, klass, obj, data);
     }
     //if at least one field is allowed to be serialized
-    ctx.buffer.writeByte(POLO); //type
+    ctx.buffer.writeByte(POLO.id); //type
     //write the POLO's reference number
     ctx.buffer.writeInt(ref);
     writeString(ctx, klass.getName()); //class name
@@ -352,6 +428,22 @@ public class BosonWriter {
         writeChar(ctx, (Character) param);
       } else if (param instanceof String) {
         writeString(ctx, (String) param);
+      } else if (
+               param instanceof Date
+                 || param instanceof LocalDate
+                 || param instanceof LocalTime
+                 || param instanceof LocalDateTime //todo add other Java 8+ date types
+                 || param instanceof Duration
+                 || param instanceof Period
+                 || param instanceof org.joda.time.DateTime
+                 || param instanceof org.joda.time.LocalDate
+                 || param instanceof org.joda.time.LocalTime
+                 || param instanceof org.joda.time.LocalDateTime
+                 || param instanceof org.joda.time.Duration
+                 || param instanceof org.joda.time.Interval
+                 || param instanceof org.joda.time.Period
+      ) {
+        writeDateLike(ctx, param);
       } else if (param instanceof TextNode) {
         writeString(ctx, ((TextNode) param).textValue());
       } else if (param instanceof ShortNode) {
@@ -383,32 +475,36 @@ public class BosonWriter {
       } else if (param instanceof Enum) {
         writeEnum(ctx, (Enum) param);
       } else {
-        if (param instanceof Throwable) {
-          throw new UnsupportedOperationException("Cannot serialize throwable", (Throwable) param);
-        }
-        //in reference list?
-        //can't use param.hashCode because recursive objects will StackOverFlow computing it in some cases
-        //e.g. Jackson's ObjectNode
-        int systemHashCode = System.identityHashCode(param);
-        Integer ref = ctx.references.get(systemHashCode);
-        //no
-        if (ref == null) {
-          //assign unique reference number
-          ref = ctx.reference.getAndIncrement();
-          //add to reference list
-          ctx.references.put(systemHashCode, ref);
-          writePolo(ctx, param, ref);
-        } else {
-          //yes -  write reference
-          writeReference(ctx, ref);
-        }
+        writeOther(ctx, param);
       }
+    }
+  }
+
+  private void writeOther(final WriterCtx ctx, final Object param) throws IOException {
+    if (param instanceof Throwable) {
+      throw new UnsupportedOperationException("Cannot serialize throwable", (Throwable) param);
+    }
+    //in reference list?
+    //can't use param.hashCode because recursive objects will StackOverFlow computing it in some cases
+    //e.g. Jackson's ObjectNode
+    int systemHashCode = System.identityHashCode(param);
+    Integer ref = ctx.references.get(systemHashCode);
+    //no
+    if (ref == null) {
+      //assign unique reference number
+      ref = ctx.reference.getAndIncrement();
+      //add to reference list
+      ctx.references.put(systemHashCode, ref);
+      writePolo(ctx, param, ref);
+    } else {
+      //yes -  write reference
+      writeReference(ctx, ref);
     }
   }
 
   private void writeReference(WriterCtx ctx, Integer ref) throws IOException {
     //if the object has been written already then write a negative reference
-    ctx.buffer.writeByte(REFERENCE);
+    ctx.buffer.writeByte(REFERENCE.id);
     ctx.buffer.writeInt(ref);
   }
 }
