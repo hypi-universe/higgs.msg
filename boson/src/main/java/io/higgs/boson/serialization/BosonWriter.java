@@ -149,8 +149,7 @@ public class BosonWriter {
     } else if (param instanceof LocalTime) {
       ctx.buffer.writeByte(LOCALTIME.id);
       writeString(ctx, ((LocalTime) param).toString());
-    } //todo add other Java 8+ date types
-    else if (param instanceof Duration) {
+    } else if (param instanceof Duration) { //todo add other Java 8+ date types
       ctx.buffer.writeByte(DURATION.id);
       //ISO-8601 seconds based representation, such as PT8H6M12.345S.
       //see https://docs.oracle.com/javase/8/docs/api/java/time/Duration.html#toString--
@@ -171,7 +170,7 @@ public class BosonWriter {
       writeString(ctx, param.toString()); //Outputs ISO8601
     } else if (param instanceof org.joda.time.LocalTime) {
       ctx.buffer.writeByte(JODA_LOCALTIME.id);
-      writeString(ctx, param.toString());//ISO8601 format (HH:mm:ss.SSS).
+      writeString(ctx, param.toString()); //ISO8601 format (HH:mm:ss.SSS).
     } else if (param instanceof org.joda.time.Duration) {
       ctx.buffer.writeByte(JODA_DURATION.id);
       writeString(ctx, param.toString()); //ISO8601
