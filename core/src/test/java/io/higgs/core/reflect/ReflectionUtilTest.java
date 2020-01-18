@@ -13,7 +13,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Date;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
@@ -104,9 +104,9 @@ public class ReflectionUtilTest {
 
   @Test
   public void getAllFieldsTest() {
-    Set<Field> fields = new HashSet<>();
+    Map<String, Field> fields = new HashMap<>();
     assertSame(fields, getAllFields(fields, A.class));
-    List<Field> list = new ArrayList<>(fields);
+    List<Field> list = new ArrayList<>(fields.values());
     list.sort(Comparator.comparing(Field::getName));
     assertEquals("a", list.get(0).getName());
     assertEquals("b", list.get(1).getName());

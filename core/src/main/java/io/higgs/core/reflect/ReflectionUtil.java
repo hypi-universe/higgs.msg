@@ -12,11 +12,9 @@ import java.time.Duration;
 import java.time.temporal.Temporal;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -25,14 +23,15 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
 
 public final class ReflectionUtil {
   public static int MAX_RECURSION_DEPTH = 10;
-  public static final ConcurrentMap<String, ConcurrentMap<String, Field>> fieldCache = new ConcurrentHashMap<>();
+  static final Map<String, Map<String, Field>> FIELDS = new ConcurrentHashMap<>();
+  static final Map<String, Map<String, Method>> METHODS = new ConcurrentHashMap<>();
+  static final Map<String, Class<?>> CLS = new ConcurrentHashMap<>();
 
   private ReflectionUtil() {
   }
@@ -45,13 +44,27 @@ public final class ReflectionUtil {
     return path.stream().reduce("", (a, b) -> a.concat(".").concat(b)).substring(1);
   }
 
+  public static Class<?> classOf(String className) {
+    return classOf(ReflectionUtil.class.getClassLoader(), className);
+  }
+
+  public static Class<?> classOf(ClassLoader loader, String className) {
+    return CLS.computeIfAbsent(className, name -> {
+      try {
+        return ClassUtils.forName(name, loader);
+      } catch (ClassNotFoundException e) {
+        throw new MissingClassException(e);
+      }
+    });
+  }
+
   public static Field field(String path, Class<?> root) {
     String[] parts = path.split("\\.");
     Field field = null;
     for (String name : parts) {
-      ConcurrentMap<String, Field> fields = fieldCache.getOrDefault(root.getName(), new ConcurrentHashMap<>());
-      if (fields.isEmpty()) {
-        fields.putAll(getAllFields(root));
+      Map<String, Field> fields = FIELDS.get(root.getName());
+      if (fields == null) {
+        fields = getAllFields(root);
       }
       field = fields.get(name);
       if (field == null) {
@@ -59,33 +72,36 @@ public final class ReflectionUtil {
       }
       root = field.getType();
     }
-    if (field != null) {
-      field.setAccessible(true);
-    }
     return field;
   }
 
-  public static ConcurrentMap<String, Field> getAllFields(Class<?> type) {
-    Set<Field> all = getAllFields(new HashSet<>(), type, 0);
-    ConcurrentHashMap<String, Field> map = new ConcurrentHashMap<>();
-    all.forEach(field -> {
-      field.setAccessible(true);
-      map.put(field.getName(), field);
-    });
-    return map;
+  public static Map<String, Field> getAllFields(Class<?> type) {
+    return getAllFields(new HashMap<>(), type, 0);
   }
 
-  public static Set<Field> getAllFields(Set<Field> fields, Class<?> type) {
+  public static Map<String, Field> getAllFields(Map<String, Field> fields, Class<?> type) {
     return getAllFields(fields, type, 0);
   }
 
-  public static Set<Field> getAllFields(Set<Field> fields, Class<?> type, int depth) {
+  public static Map<String, Field> getAllFields(Map<String, Field> fields, Class<?> type, int depth) {
     //first get inherited fields
     if (type.getSuperclass() != null && depth <= MAX_RECURSION_DEPTH) {
-      getAllFields(fields, type.getSuperclass(), ++depth);
+      Class<?> scls = type.getSuperclass();
+      String clsName = scls.getName();
+      Map<String, Field> superFields = FIELDS.get(clsName);
+      if (superFields == null) {
+        superFields = new HashMap<>();
+        FIELDS.put(clsName, superFields);
+        getAllFields(superFields, scls, ++depth); //add fields to super fields only
+      }
+      fields.putAll(superFields); //add super fields to sub-class field map
     }
     //now add all "local" fields
-    Collections.addAll(fields, type.getDeclaredFields());
+    for (Field field : type.getDeclaredFields()) {
+      //fact we're getting it probably means we'll need this so do it once at point of get instead of on each access/use
+      field.setAccessible(true);
+      fields.put(field.getName(), field);
+    }
     return fields;
   }
 
@@ -101,7 +117,15 @@ public final class ReflectionUtil {
 
   public static void getAllMethods(Map<String, Method> methods, Class<?> type, int depth) {
     if (type.getSuperclass() != null && depth <= MAX_RECURSION_DEPTH) {
-      getAllMethods(methods, type.getSuperclass(), ++depth);
+      Class<?> scls = type.getSuperclass();
+      String clsName = scls.getName();
+      Map<String, Method> superMethods = METHODS.get(clsName);
+      if (superMethods == null) {
+        superMethods = new HashMap<>();
+        METHODS.put(clsName, superMethods);
+        getAllMethods(superMethods, scls, ++depth); //add methods to super fields only
+      }
+      methods.putAll(superMethods); //add super methods to sub-class method map
     }
     for (Method m : type.getDeclaredMethods()) {
       methods.put(m.getName(), m);
@@ -109,15 +133,14 @@ public final class ReflectionUtil {
   }
 
   /**
-   *
    * @param klass the class
    * @return true if klass represents a numeric type, including byte. Both boxed and unboxed.
    */
   public static boolean isNumeric(Class<?> klass) {
     return isIntLike(klass) ||
-      isFractionalLike(klass) ||
-      isShort(klass) ||
-      isByte(klass);
+             isFractionalLike(klass) ||
+             isShort(klass) ||
+             isByte(klass);
   }
 
   public static boolean isIntLike(Class<?> klass) {
@@ -138,37 +161,37 @@ public final class ReflectionUtil {
 
   public static boolean isByte(Class<?> klass) {
     return Byte.class.isAssignableFrom(klass) ||
-      byte.class.isAssignableFrom(klass);
+             byte.class.isAssignableFrom(klass);
   }
 
   public static boolean isShort(Class<?> klass) {
     return Short.class.isAssignableFrom(klass) ||
-      short.class.isAssignableFrom(klass);
+             short.class.isAssignableFrom(klass);
   }
 
   public static boolean isFractional(Class<?> klass) {
     return isDouble(klass) ||
-      isFloat(klass);
+             isFloat(klass);
   }
 
   public static boolean isFloat(Class<?> klass) {
     return Float.class.isAssignableFrom(klass) ||
-      float.class.isAssignableFrom(klass);
+             float.class.isAssignableFrom(klass);
   }
 
   public static boolean isDouble(Class<?> klass) {
     return Double.class.isAssignableFrom(klass) ||
-      double.class.isAssignableFrom(klass);
+             double.class.isAssignableFrom(klass);
   }
 
   public static boolean isLong(Class<?> klass) {
     return Long.class.isAssignableFrom(klass) ||
-      long.class.isAssignableFrom(klass);
+             long.class.isAssignableFrom(klass);
   }
 
   public static boolean isInt(Class<?> klass) {
     return Integer.class.isAssignableFrom(klass) ||
-      int.class.isAssignableFrom(klass);
+             int.class.isAssignableFrom(klass);
   }
 
   public static boolean isString(Class<?> cls) {
@@ -177,8 +200,8 @@ public final class ReflectionUtil {
 
   public static boolean isStringLike(Class<?> cls) {
     return isString(cls)
-      || isUUID(cls)
-      || Duration.class.isAssignableFrom(cls);
+             || isUUID(cls)
+             || Duration.class.isAssignableFrom(cls);
   }
 
   public static boolean isEnum(Class cls) {
@@ -195,9 +218,9 @@ public final class ReflectionUtil {
 
   public static boolean isDate(Class<?> cls) {
     return Date.class.isAssignableFrom(cls)
-      || DateTime.class.isAssignableFrom(cls)
-      || Temporal.class.isAssignableFrom(cls)
-      || java.sql.Date.class.isAssignableFrom(cls);
+             || DateTime.class.isAssignableFrom(cls)
+             || Temporal.class.isAssignableFrom(cls)
+             || java.sql.Date.class.isAssignableFrom(cls);
   }
 
   public static boolean isCollection(Class<?> cls) {
@@ -226,10 +249,10 @@ public final class ReflectionUtil {
 
   public static boolean isScalar(Class cls) {
     return isNumeric(cls)
-      || isBool(cls)
-      || isString(cls)
-      || isDate(cls)
-      || isEnum(cls);
+             || isBool(cls)
+             || isString(cls)
+             || isDate(cls)
+             || isEnum(cls);
   }
 
   @SuppressWarnings("unchecked")
@@ -244,7 +267,7 @@ public final class ReflectionUtil {
   public static <T> T copy(T o, boolean deep, T to, Class<T> cls) {
     try {
       T obj = to == null ? newInstance(cls) : to;
-      for (Field field : getAllFields(new LinkedHashSet<>(), cls)) {
+      for (Field field : getAllFields(cls).values()) {
         field.setAccessible(true);
         boolean isStatic = Modifier.isStatic(field.getModifiers());
         if (!isStatic) {
@@ -279,7 +302,7 @@ public final class ReflectionUtil {
     Constructor[] ctors = cls.getDeclaredConstructors();
     if (ctors.length == 0) {
       throw new UnsupportedOperationException("Cannot create object if it is an interface, a primitive type, " +
-        "an array class, or void");
+                                                "an array class, or void");
     }
     T obj = null;
     for (Constructor ctor : ctors) {
@@ -294,14 +317,13 @@ public final class ReflectionUtil {
       }
     }
     if (obj == null) {
-      throw new UnsupportedOperationException(format("%s cannot be created, no-arg constructor not found",
-        cls.getName()));
+      throw new UnsupportedOperationException(cls.getName() + "%s cannot be created, no-arg constructor not found");
     }
     return obj;
   }
 
   public static Class<?> getFieldOrGetterType(String name, Class<?> cls) {
-    for (Field field : getAllFields(new HashSet<>(), cls)) {
+    for (Field field : getAllFields(cls).values()) {
       if (field.getName().contentEquals(name)) {
         return field.getType();
       }

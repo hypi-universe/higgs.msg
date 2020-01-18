@@ -12,10 +12,7 @@ import com.fasterxml.jackson.databind.node.NullNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.ShortNode;
 import com.fasterxml.jackson.databind.node.TextNode;
-import io.higgs.core.reflect.ReflectionUtil;
 import org.joda.time.DateTime;
-import org.joda.time.Interval;
-import org.joda.time.format.ISODateTimeFormat;
 import org.joda.time.format.ISOPeriodFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,11 +29,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
-import java.time.ZoneOffset;
-import java.time.temporal.Temporal;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -74,8 +68,8 @@ import static io.higgs.boson.BosonType.REFERENCE;
 import static io.higgs.boson.BosonType.SET;
 import static io.higgs.boson.BosonType.SHORT;
 import static io.higgs.boson.BosonType.STRING;
+import static io.higgs.core.reflect.ReflectionUtil.getAllFields;
 import static java.lang.String.format;
-import static java.time.ZoneOffset.UTC;
 
 /**
  * The Boson object serialiser
@@ -359,8 +353,7 @@ public class BosonWriter {
       ignoreInheritedFields = klass.getAnnotation(propertyClass).ignoreInheritedFields();
     }
     //get ALL (private,private,protect,package) fields declared in the class - includes inherited fields
-    Set<Field> fields = ReflectionUtil.getAllFields(new HashSet<>(), klass, 0);
-    for (Field field : fields) {
+    for (Field field : getAllFields(klass).values()) {
       //if inherited fields are to be ignored then fields must be declared in the current class
       if (ignoreInheritedFields && klass != field.getDeclaringClass()) {
         continue;
@@ -371,7 +364,6 @@ public class BosonWriter {
       if (!ctx.serialiseFinalFields && Modifier.isFinal(field.getModifiers())) {
         continue; //no point in serializing final fields
       }
-      field.setAccessible(true);
       boolean add = true;
       String name = field.getName();
       //add if annotated with BosonProperty
