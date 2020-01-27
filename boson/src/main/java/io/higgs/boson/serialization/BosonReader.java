@@ -85,6 +85,7 @@ public class BosonReader {
   private static final BosonReader instance = new BosonReader();
 
   public static class ReaderCtx {
+    public boolean readPoloAsMap;
     byte version = BosonWriter.WriterCtx.version;
     private ClassLoader loader = Thread.currentThread().getContextClassLoader();
     private IdentityHashMap<Integer, Object> references = new IdentityHashMap<>();
@@ -172,353 +173,204 @@ public class BosonReader {
     }
   }
 
-  private Enum readEnum(ReaderCtx ctx, boolean verified, byte verifiedType) throws Exception {
-    byte type = verifiedType;
-    if (!verified) {
-      type = ctx.buf.readByte();
-    }
-    if (ENUM.id == type) {
-      String enumClassName = readString(ctx, false, (byte) 0);
-      String enumValue = readString(ctx, false, (byte) 0);
+  private Enum<?> readEnum(ReaderCtx ctx) throws Exception {
+    String enumClassName = readString(ctx, false, (byte) 0);
+    String enumValue = readString(ctx, false, (byte) 0);
 
-      Class<?> klass;
-      try {
-        klass = ctx.loader.loadClass(enumClassName);
-      } catch (ClassNotFoundException e) {
-        throw new IllegalArgumentException(format(
-          "Cannot load the requested class %s",
-          enumClassName
-        ), e);
-      }
-      Enum[] vals = (Enum[]) klass.getEnumConstants();
-      if (vals != null && vals.length > 0) {
-        for (Enum e : vals) {
-          if (e.toString().equals(enumValue)) {
-            return e;
-          }
+    Class<?> klass;
+    try {
+      klass = ctx.loader.loadClass(enumClassName);
+    } catch (ClassNotFoundException e) {
+      throw new IllegalArgumentException(format(
+        "Cannot load the requested class %s",
+        enumClassName
+      ), e);
+    }
+    Enum<?>[] vals = (Enum<?>[]) klass.getEnumConstants();
+    if (vals != null && vals.length > 0) {
+      for (Enum<?> e : vals) {
+        if (e.toString().equals(enumValue)) {
+          return e;
         }
       }
-      //TODO review what happens if enum type not found when de-serializing
-      return null;
-    } else {
-      throw new UnsupportedBosonTypeException(format("type %s is not a Boson ENUM", type), null);
     }
+    //TODO review what happens if enum type not found when de-serializing
+    return null;
   }
 
   /**
    * Read a single byte from the buffer
    *
-   * @param verified     if true then the verifiedType param is used to match the type, if false then
-   *                     a single byte is read from the buffer to determine the type
-   * @param verifiedType the data type to be de-serialized
    * @return the byte
    */
-  private byte readByte(ReaderCtx ctx, boolean verified, byte verifiedType) throws Exception {
-    byte type = verifiedType;
-    if (!verified) {
-      type = ctx.buf.readByte();
-    }
-    if (BYTE.id == type) {
-      return ctx.buf.readByte();
-    } else {
-      throw new UnsupportedBosonTypeException(format("type %s is not a Boson BYTE", type), null);
-    }
+  private byte readByte(ReaderCtx ctx) throws Exception {
+    return ctx.buf.readByte();
   }
 
   /**
    * Read a short (16 bits) from the buffer
    *
-   * @param verified     if true then the verifiedType param is used to match the type, if false then
-   *                     a single byte is read from the buffer to determine the type
-   * @param verifiedType the data type to be de-serialized
    * @return the short
    */
-  private short readShort(ReaderCtx ctx, boolean verified, byte verifiedType) throws Exception {
-    byte type = verifiedType;
-    if (!verified) {
-      type = ctx.buf.readByte();
-    }
-    if (SHORT.id == type) {
-      return ctx.buf.readShort();
-    } else {
-      throw new UnsupportedBosonTypeException(format("type %s is not a Boson SHORT", type), null);
-    }
+  private short readShort(ReaderCtx ctx) throws Exception {
+    return ctx.buf.readShort();
   }
 
   /**
    * Read an int (4 bytes) from the buffer
    *
-   * @param verified     if true then the verifiedType param is used to match the type, if false then
-   *                     a single byte is read from the buffer to determine the type
-   * @param verifiedType the data type to be de-serialized
    * @return the int
    */
-  private int readInt(ReaderCtx ctx, boolean verified, byte verifiedType) throws Exception {
-    byte type = verifiedType;
-    if (!verified) {
-      type = ctx.buf.readByte();
-    }
-    if (INT.id == type) {
-      return ctx.buf.readInt();
-    } else {
-      throw new UnsupportedBosonTypeException(format("type %s is not a Boson INT", type), null);
-    }
+  private int readInt(ReaderCtx ctx) throws Exception {
+    return ctx.buf.readInt();
   }
 
   /**
    * Read a long (8 bytes) from the buffer
    *
-   * @param verified     if true then the verifiedType param is used to match the type, if false then
-   *                     a single byte is read from the buffer to determine the type
-   * @param verifiedType the data type to be de-serialized
    * @return the long
    */
-  private long readLong(ReaderCtx ctx, boolean verified, byte verifiedType) throws Exception {
-    byte type = verifiedType;
-    if (!verified) {
-      type = ctx.buf.readByte();
-    }
-    if (LONG.id == type) {
-      return ctx.buf.readLong();
-    } else {
-      throw new UnsupportedBosonTypeException(format("type %s is not a Boson LONG", type), null);
-    }
+  private long readLong(ReaderCtx ctx) throws Exception {
+    return ctx.buf.readLong();
   }
 
   /**
    * Read a float (32 bit floating point) from the buffer
    *
-   * @param verified     if true then the verifiedType param is used to match the type, if false then
-   *                     a single byte is read from the buffer to determine the type
-   * @param verifiedType the data type to be de-serialized
    * @return the float
    */
-  private float readFloat(ReaderCtx ctx, boolean verified, byte verifiedType) throws Exception {
-    byte type = verifiedType;
-    if (!verified) {
-      type = ctx.buf.readByte();
-    }
-    if (FLOAT.id == type) {
-      return ctx.buf.readFloat();
-    } else {
-      throw new UnsupportedBosonTypeException(format("type %s is not a Boson FLOAT", type), null);
-    }
+  private float readFloat(ReaderCtx ctx) throws Exception {
+    return ctx.buf.readFloat();
   }
 
   /**
    * Read a double (64 bit floating point) from the buffer
    *
-   * @param verified     if true then the verifiedType param is used to match the type, if false then
-   *                     a single byte is read from the buffer to determine the type
-   * @param verifiedType the data type to be de-serialized
    * @return the double
    */
-  private double readDouble(ReaderCtx ctx, boolean verified, byte verifiedType) throws Exception {
-    byte type = verifiedType;
-    if (!verified) {
-      type = ctx.buf.readByte();
-    }
-    if (DOUBLE.id == type) {
-      return ctx.buf.readDouble();
-    } else {
-      throw new UnsupportedBosonTypeException(format("type %s is not a Boson DOUBLE", type), null);
-    }
+  private double readDouble(ReaderCtx ctx) throws Exception {
+    return ctx.buf.readDouble();
   }
 
   /**
    * Read a a single byte from the buffer   if the byte is 1 then returns true, otherwise false
    *
-   * @param verified     if true then the verifiedType param is used to match the type, if false then
-   *                     a single byte is read from the buffer to determine the type
-   * @param verifiedType the data type to be de-serialized
    * @return the boolean
    */
-  private boolean readBoolean(ReaderCtx ctx, boolean verified, byte verifiedType) throws Exception {
-    byte type = verifiedType;
-    if (!verified) {
-      type = ctx.buf.readByte();
-    }
-    if (BOOLEAN.id == type) {
-      return ctx.buf.readByte() != 0;
-    } else {
-      throw new UnsupportedBosonTypeException(format("type %s is not a Boson BOOLEAN", type), null);
-    }
+  private boolean readBoolean(ReaderCtx ctx) throws Exception {
+    return ctx.buf.readByte() != 0;
   }
 
   /**
    * Read a char (16 bits) from the buffer
    *
-   * @param verified     if true then the verifiedType param is used to match the type, if false then
-   *                     a single byte is read from the buffer to determine the type
-   * @param verifiedType the data type to be de-serialized
    * @return the char
    */
-  private char readChar(ReaderCtx ctx, boolean verified, byte verifiedType) throws Exception {
-    byte type = verifiedType;
-    if (!verified) {
-      type = ctx.buf.readByte();
-    }
-    if (CHAR.id == type) {
-      return ctx.buf.readChar();
-    } else {
-      throw new UnsupportedBosonTypeException(format("type %s is not a Boson CHAR", type), null);
-    }
+  private char readChar(ReaderCtx ctx) throws Exception {
+    return ctx.buf.readChar();
   }
 
   /**
    * Read an array from the buffer
    *
-   * @param ctx          the ctx
-   * @param verified     if true then the verifiedType param is used to match the type, if false then
-   *                     a single byte is read from the buffer to determine the type
-   * @param verifiedType the data type to be de-serialized
+   * @param ctx the ctx
    * @return the array
    */
-  private Object readArray(ReaderCtx ctx, boolean verified, byte verifiedType) throws Exception {
-    byte type = verifiedType;
-    if (!verified) {
-      type = ctx.buf.readByte();
-    }
-    if (ARRAY.id == type) {
-      //read number of elements in the array
-      int size = ctx.buf.readInt();
-      String componentTypeName = readString(ctx, false, (byte) 0);
-      Class componentType = classOf(ctx.loader, componentTypeName);
-      Object arr = null;
-      for (int i = 0; i < size; i++) {
-        type = ctx.buf.readByte();
-        Object obj = readType(ctx, type);
-        if (obj != null && arr == null) {
-          arr = Array.newInstance(componentType, size);
-        }
-        Array.set(arr, i, obj);
+  private Object readArray(ReaderCtx ctx) throws Exception {
+    //read number of elements in the array
+    int size = ctx.buf.readInt();
+    String componentTypeName = readString(ctx, false, (byte) 0);
+    Class<?> componentType = classOf(ctx.loader, componentTypeName);
+    Object arr = null;
+    for (int i = 0; i < size; i++) {
+      final byte type = ctx.buf.readByte();
+      Object obj = readType(ctx, type);
+      if (obj != null && arr == null) {
+        arr = Array.newInstance(componentType, size);
       }
-      return arr;
-    } else {
-      throw new UnsupportedBosonTypeException(format("type %s is not a Boson ARRAY", type), null);
+      Array.set(arr, i, obj);
     }
+    return arr;
   }
 
-  private byte[] readByteArray(ReaderCtx ctx, boolean verified, byte verifiedType) throws Exception {
-    byte type = verifiedType;
-    if (!verified) {
-      type = ctx.buf.readByte();
-    }
-    if (BYTE_ARRAY.id == type) {
-      //read number of elements in the array
-      int size = ctx.buf.readInt();
-      byte[] arr = new byte[size];
-      ctx.buf.readFully(arr, 0, size);
-      return arr;
-    } else {
-      throw new UnsupportedBosonTypeException(format("type %s is not a Boson ARRAY", type), null);
-    }
+  private byte[] readByteArray(ReaderCtx ctx) throws Exception {
+    //read number of elements in the array
+    int size = ctx.buf.readInt();
+    byte[] arr = new byte[size];
+    ctx.buf.readFully(arr, 0, size);
+    return arr;
   }
 
   /**
    * Read a List from the buffer
    *
-   * @param verified     if true then the verifiedType param is used to match the type, if false then
-   *                     a single byte is read from the buffer to determine the type
-   * @param verifiedType the data type to be de-serialized
    * @return the list
    */
-  private List<Object> readList(ReaderCtx ctx, boolean verified, byte verifiedType) throws Exception {
-    byte type = verifiedType;
-    if (!verified) {
-      type = ctx.buf.readByte();
+  private List<Object> readList(ReaderCtx ctx) throws Exception {
+    //read number of elements in the array
+    int size = ctx.buf.readInt();
+    List<Object> arr = new ArrayList<>();
+    for (int i = 0; i < size; i++) {
+      //get type of this element in the array
+      final byte type = ctx.buf.readByte();
+      //at this stage only basic data types are allowed
+      arr.add(readType(ctx, type));
     }
-    if (LIST.id == type) {
-      //read number of elements in the array
-      int size = ctx.buf.readInt();
-      List<Object> arr = new ArrayList<>();
-      for (int i = 0; i < size; i++) {
-        //get type of this element in the array
-        type = ctx.buf.readByte();
-        //at this stage only basic data types are allowed
-        arr.add(readType(ctx, type));
-      }
-      return arr;
-    } else {
-      throw new UnsupportedBosonTypeException(format("type %s is not a Boson LIST", type), null);
-    }
+    return arr;
   }
 
-  private Set<Object> readSet(ReaderCtx ctx, boolean verified, byte verifiedType) throws Exception {
-    byte type = verifiedType;
-    if (!verified) {
-      type = ctx.buf.readByte();
+  private Set<Object> readSet(ReaderCtx ctx) throws Exception {
+    //read number of elements in the array
+    int size = ctx.buf.readInt();
+    Set<Object> set = new HashSet<>();
+    for (int i = 0; i < size; i++) {
+      //get type of this element in the array
+      byte type = ctx.buf.readByte();
+      //at this stage only basic data types are allowed
+      set.add(readType(ctx, type));
     }
-    if (SET.id == type) {
-      //read number of elements in the array
-      int size = ctx.buf.readInt();
-      Set<Object> set = new HashSet<>();
-      for (int i = 0; i < size; i++) {
-        //get type of this element in the array
-        type = ctx.buf.readByte();
-        //at this stage only basic data types are allowed
-        set.add(readType(ctx, type));
-      }
-      return set;
-    } else {
-      throw new UnsupportedBosonTypeException(format("type %s is not a Boson SET", type), null);
-    }
+    return set;
   }
 
   /**
    * Read a map (list of key -> value pairs) from the buffer
    *
-   * @param verified     if true then the verifiedType param is used to match the type, if false then
-   *                     a single byte is read from the buffer to determine the type
-   * @param verifiedType the data type to be de-serialized
    * @return the map
    */
-  private Map<Object, Object> readMap(ReaderCtx ctx, boolean verified, byte verifiedType) throws Exception {
-    byte type = verifiedType;
-    if (!verified) {
-      type = ctx.buf.readByte();
+  private Map<Object, Object> readMap(ReaderCtx ctx) throws Exception {
+    int size = ctx.buf.readInt();
+    Map<Object, Object> kv = new HashMap<>();
+    for (int i = 0; i < size; i++) {
+      byte keyType = ctx.buf.readByte();
+      Object key = readType(ctx, keyType);
+      byte valueType = ctx.buf.readByte();
+      Object value = readType(ctx, valueType);
+      kv.put(key, value);
     }
-    if (MAP.id == type) {
-      int size = ctx.buf.readInt();
-      Map<Object, Object> kv = new HashMap<>();
-      for (int i = 0; i < size; i++) {
-        byte keyType = ctx.buf.readByte();
-        Object key = readType(ctx, keyType);
-        byte valueType = ctx.buf.readByte();
-        Object value = readType(ctx, valueType);
-        kv.put(key, value);
-      }
-      return kv;
-    } else {
-      throw new UnsupportedBosonTypeException(format("type %s is not a Boson MAP", type), null);
-    }
+    return kv;
   }
 
-  private Object readPolo(ReaderCtx ctx, boolean verified, byte verifiedType) throws Exception {
-    byte type = verifiedType;
-    if (!verified) {
-      type = ctx.buf.readByte();
+  private Object readPolo(ReaderCtx ctx) throws Exception {
+    //get reference
+    int ref = ctx.buf.readInt();
+    //get class name
+    String poloClassName = readString(ctx, false, (byte) 0);
+    if (poloClassName.isEmpty()) {
+      throw new InvalidDataException("Cannot de-serialise a POLO without it's fully qualified class name " +
+                                       "being provided", null);
     }
-    if (POLO.id == type) {
-      //get reference
-      int ref = ctx.buf.readInt();
-      //get class name
-      String poloClassName = readString(ctx, false, (byte) 0);
-      if (poloClassName == null || poloClassName.isEmpty()) {
-        throw new InvalidDataException("Cannot de-serialise a POLO without it's fully qualified class name " +
-                                         "being provided", null);
-      }
+    //get number of fields serialized
+    int size = ctx.buf.readInt();
+    if (ctx.readPoloAsMap) {
+      return readPoloMap(ctx, ref, size);
+    } else {
       boolean isJsonArray = poloClassName.contentEquals(ArrayNode.class.getName());
       boolean isJsonObject = poloClassName.contentEquals(ObjectNode.class.getName());
-      //get number of fields serialized
-      int size = ctx.buf.readInt();
       if (isJsonArray || isJsonObject) {
         return readJson(ctx, isJsonArray, ref, size);
       } else {
         return readPoloReflection(ctx, poloClassName, ref, size);
       }
-    } else {
-      throw new UnsupportedBosonTypeException(format("type %s is not a Boson POLO", type), null);
     }
   }
 
@@ -536,6 +388,20 @@ public class BosonReader {
       } else {
         ((ObjectNode) instance).set(key, json);
       }
+    }
+    return instance;
+  }
+
+  private Object readPoloMap(ReaderCtx ctx, int ref, int size) throws Exception {
+    Map<String, Object> instance = new HashMap<>();
+    //Put the instance in the reference table
+    ctx.references.put(ref, instance);
+    for (int i = 0; i < size; i++) {
+      //polo keys are required to be strings
+      String key = readString(ctx, false, (byte) 0);
+      byte valueType = ctx.buf.readByte();
+      Object value = readType(ctx, valueType);
+      instance.put(key, value);
     }
     return instance;
   }
@@ -617,18 +483,14 @@ public class BosonReader {
     return instance;
   }
 
-  private Object readReference(ReaderCtx ctx, final boolean verified, byte verifiedType) throws Exception {
-    byte type = verifiedType;
-    if (!verified) {
-      type = ctx.buf.readByte();
-    }
+  private Object readReference(ReaderCtx ctx, byte verifiedType) throws Exception {
     Object obj;
-    if (REFERENCE.id == type) {
+    if (REFERENCE.id == verifiedType) {
       int reference = ctx.buf.readInt();
       obj = ctx.references.get(reference);
       return obj;
     } else {
-      throw new UnsupportedBosonTypeException(format("type %s is not a Boson reference", type), null);
+      throw new UnsupportedBosonTypeException(format("type %s is not a Boson reference", verifiedType), null);
     }
   }
 
@@ -641,41 +503,41 @@ public class BosonReader {
    */
   private Object readType(ReaderCtx ctx, byte type) throws Exception {
     if (type == BYTE.id) {
-      return readByte(ctx, true, type);
+      return readByte(ctx);
     } else if (type == SHORT.id) {
-      return readShort(ctx, true, type);
+      return readShort(ctx);
     } else if (type == INT.id) {
-      return readInt(ctx, true, type);
+      return readInt(ctx);
     } else if (type == LONG.id) {
-      return readLong(ctx, true, type);
+      return readLong(ctx);
     } else if (type == FLOAT.id) {
-      return readFloat(ctx, true, type);
+      return readFloat(ctx);
     } else if (type == DOUBLE.id) {
-      return readDouble(ctx, true, type);
+      return readDouble(ctx);
     } else if (type == BOOLEAN.id) {
-      return readBoolean(ctx, true, type);
+      return readBoolean(ctx);
     } else if (type == CHAR.id) {
-      return readChar(ctx, true, type);
+      return readChar(ctx);
     } else if (type == NULL.id) {
       return null;
     } else if (type == STRING.id) {
       return readString(ctx, true, type);
     } else if (type == ARRAY.id) {
-      return readArray(ctx, true, type);
+      return readArray(ctx);
     } else if (type == BYTE_ARRAY.id) {
-      return readByteArray(ctx, true, type);
+      return readByteArray(ctx);
     } else if (type == LIST.id) {
-      return readList(ctx, true, type);
+      return readList(ctx);
     } else if (type == SET.id) {
-      return readSet(ctx, true, type);
+      return readSet(ctx);
     } else if (type == MAP.id) {
-      return readMap(ctx, true, type);
+      return readMap(ctx);
     } else if (type == POLO.id) {
-      return readPolo(ctx, true, type);
+      return readPolo(ctx);
     } else if (type == REFERENCE.id) {
-      return readReference(ctx, true, type);
+      return readReference(ctx, type);
     } else if (type == ENUM.id) {
-      return readEnum(ctx, true, ENUM.id);
+      return readEnum(ctx);
     } else if (type == DATE.id) {
       return new Date(ctx.buf.readLong());
     } else if (type == LOCAL_DATE.id) {

@@ -9,14 +9,14 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
-import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 
 import static io.higgs.boson.serialization.BosonReader.decode;
 import static io.higgs.boson.serialization.BosonWriter.encode;
-import static java.util.Collections.singleton;
+import static java.util.Arrays.asList;
 import static junit.framework.Assert.assertEquals;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertNotNull;
@@ -47,8 +47,8 @@ public class BosonWriterTest {
     mixed.put("null", null);
     mixed.put("str", "a str");
     mixed.put("array", new Object[]{1, "2"});
-    mixed.put("list", Arrays.asList(5, 6));
-    mixed.put("set", singleton(34));
+    mixed.put("list", asList(5, 6));
+    mixed.put("set", new HashSet<>(asList(34, 89, 1.2F, 4.3D)));
 
     //
     map.put("int", intMap);
@@ -93,8 +93,8 @@ public class BosonWriterTest {
     assertNull(outMixed.get("null"));
     assertEquals("a str", outMixed.get("str"));
     assertArrayEquals(new Object[]{1, "2"}, (Object[]) outMixed.get("array"));
-    assertEquals(Arrays.asList(5, 6), outMixed.get("list"));
-    assertEquals(singleton(34), outMixed.get("set"));
+    assertEquals(asList(5, 6), outMixed.get("list"));
+    assertEquals(new HashSet<>(asList(34, 89, 1.2F, 4.3D)), outMixed.get("set"));
   }
 
   @Test
