@@ -84,6 +84,14 @@ public final class ReflectionUtil {
   }
 
   public static Map<String, Field> getAllFields(Map<String, Field> fields, Class<?> type, int depth) {
+    String typeName = type.getName();
+    Map<String, Field> clsFields = FIELDS.get(typeName);
+    if (clsFields == null) {
+      FIELDS.put(typeName, fields);
+    } else {
+      fields.putAll(clsFields);
+      return fields;
+    }
     //first get inherited fields
     if (type.getSuperclass() != null && depth <= MAX_RECURSION_DEPTH) {
       Class<?> scls = type.getSuperclass();
@@ -116,6 +124,13 @@ public final class ReflectionUtil {
   }
 
   public static void getAllMethods(Map<String, Method> methods, Class<?> type, int depth) {
+    final Map<String, Method> current = METHODS.get(type.getName());
+    if (current == null) {
+      METHODS.put(type.getName(), methods);
+    } else {
+      methods.putAll(current);
+      return;
+    }
     if (type.getSuperclass() != null && depth <= MAX_RECURSION_DEPTH) {
       Class<?> scls = type.getSuperclass();
       String clsName = scls.getName();
