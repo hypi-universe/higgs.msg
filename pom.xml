@@ -37,7 +37,7 @@
     <properties>
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
-        <jackson.version>2.9.10.1</jackson.version>
+        <jackson.version>2.9.10.7</jackson.version>
         <cglib.version>3.3.0</cglib.version>
         <encoding>UTF-8</encoding>
     </properties>
